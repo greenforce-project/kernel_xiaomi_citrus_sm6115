@@ -2748,10 +2748,9 @@ static int futex_wait(u32 __user *uaddr, unsigned int flags, u32 val,
 	if (abs_time) {
 		to = &timeout;
 
-		hrtimer_init_on_stack(&to->timer, (flags & FLAGS_CLOCKRT) ?
-				      CLOCK_REALTIME : CLOCK_MONOTONIC,
-				      HRTIMER_MODE_ABS);
-		hrtimer_init_sleeper(to, current);
+		hrtimer_init_sleeper_on_stack(to, (flags & FLAGS_CLOCKRT) ?
+					      CLOCK_REALTIME : CLOCK_MONOTONIC,
+					      HRTIMER_MODE_ABS, current);
 		hrtimer_set_expires_range_ns(&to->timer, *abs_time,
 					     current->timer_slack_ns);
 	}
@@ -2849,9 +2848,8 @@ static int futex_lock_pi(u32 __user *uaddr, unsigned int flags,
 
 	if (time) {
 		to = &timeout;
-		hrtimer_init_on_stack(&to->timer, CLOCK_REALTIME,
-				      HRTIMER_MODE_ABS);
-		hrtimer_init_sleeper(to, current);
+		hrtimer_init_sleeper_on_stack(to, CLOCK_REALTIME,
+					      HRTIMER_MODE_ABS, current);
 		hrtimer_set_expires(&to->timer, *time);
 	}
 
@@ -3274,10 +3272,9 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, unsigned int flags,
 
 	if (abs_time) {
 		to = &timeout;
-		hrtimer_init_on_stack(&to->timer, (flags & FLAGS_CLOCKRT) ?
-				      CLOCK_REALTIME : CLOCK_MONOTONIC,
-				      HRTIMER_MODE_ABS);
-		hrtimer_init_sleeper(to, current);
+		hrtimer_init_sleeper_on_stack(to, (flags & FLAGS_CLOCKRT) ?
+					      CLOCK_REALTIME : CLOCK_MONOTONIC,
+					      HRTIMER_MODE_ABS, current);
 		hrtimer_set_expires_range_ns(&to->timer, *abs_time,
 					     current->timer_slack_ns);
 	}
