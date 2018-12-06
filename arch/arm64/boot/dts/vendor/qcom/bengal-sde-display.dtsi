@@ -153,7 +153,6 @@
 };
 
 &dsi_td4330_truly_v2_video {
-	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0A
 										06 01 00 01 00 00 01 0D];
@@ -186,7 +185,6 @@
 
 
 &dsi_ft8719_truly_v2_video {
-	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0A
 										06 01 00 01 00 00 01 0D

@@ -36,7 +36,6 @@
 		qcom,mdss-dsi-te-dcs-command = <0x01>;
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
-		qcom,esd-check-enabled;
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 		qcom,mdss-dsi-panel-status-command = <0x6010001 0x10a>;
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
