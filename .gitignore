@@ -138,3 +138,6 @@ kernel/configs/android-*.cfg
 
 # Bindings directory
 arch/arm64/boot/dts/vendor/bindings
+
+# Object directory
+out/
