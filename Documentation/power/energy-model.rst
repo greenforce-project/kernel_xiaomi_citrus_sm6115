@@ -1,6 +1,6 @@
-                           ====================
-                           Energy Model of CPUs
-                           ====================
+====================
+Energy Model of CPUs
+====================
 
 1. Overview
 -----------
@@ -20,7 +20,7 @@ kernel, hence enabling to avoid redundant work.
 
 The figure below depicts an example of drivers (Arm-specific here, but the
 approach is applicable to any architecture) providing power costs to the EM
-framework, and interested clients reading the data from it.
+framework, and interested clients reading the data from it::
 
        +---------------+  +-----------------+  +---------------+
        | Thermal (IPA) |  | Scheduler (EAS) |  |     Other     |
@@ -58,15 +58,17 @@ micro-architectures.
 2. Core APIs
 ------------
 
-  2.1 Config options
+2.1 Config options
+^^^^^^^^^^^^^^^^^^
 
 CONFIG_ENERGY_MODEL must be enabled to use the EM framework.
 
 
-  2.2 Registration of performance domains
+2.2 Registration of performance domains
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Drivers are expected to register performance domains into the EM framework by
-calling the following API:
+calling the following API::
 
   int em_register_perf_domain(cpumask_t *span, unsigned int nr_states,
 			      struct em_data_callback *cb);
@@ -80,7 +82,8 @@ callback, and kernel/power/energy_model.c for further documentation on this
 API.
 
 
-  2.3 Accessing performance domains
+2.3 Accessing performance domains
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Subsystems interested in the energy model of a CPU can retrieve it using the
 em_cpu_get() API. The energy model tables are allocated once upon creation of

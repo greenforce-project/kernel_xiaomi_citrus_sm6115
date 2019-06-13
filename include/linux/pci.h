@@ -763,6 +763,50 @@ struct pci_error_handlers {
 
 
 struct module;
+
+/**
+ * struct pci_driver - PCI driver structure
+ * @node:	List of driver structures.
+ * @name:	Driver name.
+ * @id_table:	Pointer to table of device IDs the driver is
+ *		interested in.  Most drivers should export this
+ *		table using MODULE_DEVICE_TABLE(pci,...).
+ * @probe:	This probing function gets called (during execution
+ *		of pci_register_driver() for already existing
+ *		devices or later if a new device gets inserted) for
+ *		all PCI devices which match the ID table and are not
+ *		"owned" by the other drivers yet. This function gets
+ *		passed a "struct pci_dev \*" for each device whose
+ *		entry in the ID table matches the device. The probe
+ *		function returns zero when the driver chooses to
+ *		take "ownership" of the device or an error code
+ *		(negative number) otherwise.
+ *		The probe function always gets called from process
+ *		context, so it can sleep.
+ * @remove:	The remove() function gets called whenever a device
+ *		being handled by this driver is removed (either during
+ *		deregistration of the driver or when it's manually
+ *		pulled out of a hot-pluggable slot).
+ *		The remove function always gets called from process
+ *		context, so it can sleep.
+ * @suspend:	Put device into low power state.
+ * @suspend_late: Put device into low power state.
+ * @resume_early: Wake device from low power state.
+ * @resume:	Wake device from low power state.
+ *		(Please see Documentation/power/pci.rst for descriptions
+ *		of PCI Power Management and the related functions.)
+ * @shutdown:	Hook into reboot_notifier_list (kernel/sys.c).
+ *		Intended to stop any idling DMA operations.
+ *		Useful for enabling wake-on-lan (NIC) or changing
+ *		the power state of a device before reboot.
+ *		e.g. drivers/net/e100.c.
+ * @sriov_configure: Optional driver callback to allow configuration of
+ *		number of VFs to enable via sysfs "sriov_numvfs" file.
+ * @err_handler: See Documentation/PCI/pci-error-recovery.rst
+ * @groups:	Sysfs attribute groups.
+ * @driver:	Driver model structure.
+ * @dynids:	List of dynamically added device IDs.
+ */
 struct pci_driver {
 	struct list_head	node;
 	const char		*name;
