@@ -281,6 +281,3 @@ aw87359_audio_dlkm-y := $(AW87359_OBJS)
 
 obj-$(CONFIG_SND_SOC_AW87519) += aw87519_audio_dlkm.o
 aw87519_audio_dlkm-y := $(AW87519_OBJS)
-
-# inject some build related information
-DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"
