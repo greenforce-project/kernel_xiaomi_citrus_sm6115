@@ -1275,6 +1275,18 @@ static int cam_tfe_csid_disable_pxl_path(
 			pxl_reg->csid_pxl_ctrl_addr);
 	}
 
+	if (path_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE &&
+		stop_cmd == CAM_TFE_CSID_HALT_IMMEDIATELY) {
+		/* configure Halt for slave */
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_ctrl_addr);
+		val &= ~0xF;
+		val |= stop_cmd;
+		val |= (TFE_CSID_HALT_MODE_MASTER << 2);
+		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_ctrl_addr);
+	}
+
 	return rc;
 }
 
@@ -1755,16 +1767,16 @@ static int cam_tfe_csid_release(void *hw_priv,
 		return -EINVAL;
 	}
 
+	csid_hw_info = (struct cam_hw_info  *)hw_priv;
+	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
+	res = (struct cam_isp_resource_node *)release_args;
+
 	if (res->res_type != CAM_ISP_RESOURCE_PIX_PATH) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res type:%d res id%d",
 			csid_hw->hw_intf->hw_idx, res->res_type,
 			res->res_id);
 		return -EINVAL;
 	}
-
-	csid_hw_info = (struct cam_hw_info  *)hw_priv;
-	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
-	res = (struct cam_isp_resource_node *)release_args;
 
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	if ((res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
@@ -1872,17 +1884,17 @@ static int cam_tfe_csid_init_hw(void *hw_priv,
 		return -EINVAL;
 	}
 
+	csid_hw_info = (struct cam_hw_info  *)hw_priv;
+	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
+	res      = (struct cam_isp_resource_node *)init_args;
+	csid_reg = csid_hw->csid_info->csid_reg;
+
 	if (res->res_type != CAM_ISP_RESOURCE_PIX_PATH) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid res type state %d",
 			csid_hw->hw_intf->hw_idx,
 			res->res_type);
 		return -EINVAL;
 	}
-
-	csid_hw_info = (struct cam_hw_info  *)hw_priv;
-	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
-	res      = (struct cam_isp_resource_node *)init_args;
-	csid_reg = csid_hw->csid_info->csid_reg;
 
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	if (res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
@@ -1946,17 +1958,17 @@ static int cam_tfe_csid_deinit_hw(void *hw_priv,
 		return -EINVAL;
 	}
 
-	if (res->res_type == CAM_ISP_RESOURCE_PIX_PATH) {
+	CAM_DBG(CAM_ISP, "Enter");
+	res = (struct cam_isp_resource_node *)deinit_args;
+	csid_hw_info = (struct cam_hw_info  *)hw_priv;
+	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
+
+	if (res->res_type != CAM_ISP_RESOURCE_PIX_PATH) {
 		CAM_ERR(CAM_ISP, "CSID:%d Invalid Res type %d",
 			 csid_hw->hw_intf->hw_idx,
 			res->res_type);
 		return -EINVAL;
 	}
-
-	CAM_DBG(CAM_ISP, "Enter");
-	res = (struct cam_isp_resource_node *)deinit_args;
-	csid_hw_info = (struct cam_hw_info  *)hw_priv;
-	csid_hw = (struct cam_tfe_csid_hw   *)csid_hw_info->core_info;
 
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	if (res->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) {
