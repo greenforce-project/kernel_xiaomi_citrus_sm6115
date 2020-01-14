@@ -801,7 +801,7 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	struct dsi_display *dsi_display = display;
 	struct dsi_panel *panel;
 	u32 status_mode;
-	int rc = 0x1;
+	int rc = 0x1, ret;
 	u32 mask;
 
 	if (!dsi_display || !dsi_display->panel)
@@ -839,8 +839,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 		goto exit;
 	}
 
-	dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+	ret = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
 		DSI_ALL_CLKS, DSI_CLK_ON);
+	if (ret)
+		goto release_panel_lock;
 
 	/* Mask error interrupts before attempting ESD read */
 	mask = BIT(DSI_FIFO_OVERFLOW) | BIT(DSI_FIFO_UNDERFLOW);
@@ -5934,7 +5936,7 @@ void dsi_display_adjust_mode_timing(
 			struct dsi_display_mode *dsi_mode,
 			int lanes, int bpp)
 {
-	u32 new_htotal, new_vtotal, htotal, vtotal, old_htotal;
+	u64 new_htotal, new_vtotal, htotal, vtotal, old_htotal, div;
 
 	if (!dyn_clk_caps->maintain_const_fps)
 		return;
@@ -5949,8 +5951,9 @@ void dsi_display_adjust_mode_timing(
 	case DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP:
 		vtotal = DSI_V_TOTAL(&dsi_mode->timing);
 		old_htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
-		new_htotal = (dsi_mode->timing.clk_rate_hz * lanes);
-		new_htotal /= (bpp * vtotal * dsi_mode->timing.refresh_rate);
+		new_htotal = dsi_mode->timing.clk_rate_hz * lanes;
+		div = bpp * vtotal * dsi_mode->timing.refresh_rate;
+		do_div(new_htotal, div);
 		if (old_htotal > new_htotal)
 			dsi_mode->timing.h_front_porch -=
 					(old_htotal - new_htotal);
@@ -5961,8 +5964,9 @@ void dsi_display_adjust_mode_timing(
 
 	case DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP:
 		htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
-		new_vtotal = (dsi_mode->timing.clk_rate_hz * lanes);
-		new_vtotal /= (bpp * htotal * dsi_mode->timing.refresh_rate);
+		new_vtotal = dsi_mode->timing.clk_rate_hz * lanes;
+		div = bpp * htotal * dsi_mode->timing.refresh_rate;
+		do_div(new_vtotal, div);
 		dsi_mode->timing.v_front_porch = new_vtotal -
 				dsi_mode->timing.v_back_porch -
 				dsi_mode->timing.v_sync_width -
