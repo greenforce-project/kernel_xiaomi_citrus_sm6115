@@ -1106,6 +1106,8 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	int sync_slot_idx = 0, sync_rd_idx = 0, rc = 0;
 	int32_t sync_num_slots = 0;
 	uint64_t sync_frame_duration = 0;
+	uint64_t sof_timestamp_delta = 0;
+	uint64_t master_slave_diff = 0;
 	bool ready = true, sync_ready = true;
 
 	if (!link->sync_link) {
@@ -1138,6 +1140,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 			sync_link->prev_sof_timestamp;
 	else
 		sync_frame_duration = DEFAULT_FRAME_DURATION;
+
+	sof_timestamp_delta =
+		link->sof_timestamp >= sync_link->sof_timestamp
+		? link->sof_timestamp - sync_link->sof_timestamp
+		: sync_link->sof_timestamp - link->sof_timestamp;
 
 	CAM_DBG(CAM_CRM,
 		"sync link %x last frame_duration is %d ns",
@@ -1260,11 +1267,10 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	 * difference of two SOF timestamp less than
 	 * (sync_frame_duration / 5).
 	 */
-	do_div(sync_frame_duration, 5);
-	if ((link->sof_timestamp > sync_link->sof_timestamp) &&
-		(sync_link->sof_timestamp > 0) &&
-		(link->sof_timestamp - sync_link->sof_timestamp <
-		sync_frame_duration) &&
+	master_slave_diff = sync_frame_duration;
+	do_div(master_slave_diff, 5);
+	if ((sync_link->sof_timestamp > 0) &&
+		(sof_timestamp_delta < master_slave_diff) &&
 		(sync_rd_slot->sync_mode == CAM_REQ_MGR_SYNC_MODE_SYNC)) {
 
 		/*
@@ -1287,6 +1293,11 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 				"sync link %x too quickly, skip next frame of sync link",
 				sync_link->link_hdl);
 			link->sync_link_sof_skip = true;
+		} else if (sync_link->req.in_q->slot[sync_slot_idx].status !=
+			CRM_SLOT_STATUS_REQ_APPLIED) {
+			CAM_DBG(CAM_CRM,
+				"link %x other not applied", link->link_hdl);
+			return -EAGAIN;
 		}
 	}
 
@@ -3698,6 +3709,66 @@ end:
 	return rc;
 }
 
+int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req)
+{
+	int                                  rc = 0;
+	int                                  i;
+	struct cam_req_mgr_dump_info         info;
+	struct cam_req_mgr_core_link        *link = NULL;
+	struct cam_req_mgr_core_session     *session = NULL;
+	struct cam_req_mgr_connected_device *device = NULL;
+
+	if (!dump_req) {
+		CAM_ERR(CAM_CRM, "dump req is NULL");
+		return -EFAULT;
+	}
+
+	mutex_lock(&g_crm_core_dev->crm_lock);
+	/* session hdl's priv data is cam session struct */
+	session = (struct cam_req_mgr_core_session *)
+	    cam_get_device_priv(dump_req->session_handle);
+	if (!session) {
+		CAM_ERR(CAM_CRM, "Invalid session %x",
+			dump_req->session_handle);
+		rc = -EINVAL;
+		goto end;
+	}
+	if (session->num_links <= 0) {
+		CAM_WARN(CAM_CRM, "No active links in session %x",
+			dump_req->session_handle);
+		goto end;
+	}
+
+	link = (struct cam_req_mgr_core_link *)
+		cam_get_device_priv(dump_req->link_hdl);
+	if (!link) {
+		CAM_DBG(CAM_CRM, "link ptr NULL %x", dump_req->link_hdl);
+		rc = -EINVAL;
+		goto end;
+	}
+	info.offset = dump_req->offset;
+	for (i = 0; i < link->num_devs; i++) {
+		device = &link->l_dev[i];
+		info.link_hdl = dump_req->link_hdl;
+		info.dev_hdl = device->dev_hdl;
+		info.req_id = dump_req->issue_req_id;
+		info.buf_handle = dump_req->buf_handle;
+		info.error_type = dump_req->error_type;
+		if (device->ops && device->ops->dump_req) {
+			rc = device->ops->dump_req(&info);
+			if (rc)
+				CAM_ERR(CAM_REQ,
+					"Fail dump req %llu dev %d rc %d",
+					info.req_id, device->dev_hdl, rc);
+		}
+	}
+	dump_req->offset = info.offset;
+	CAM_INFO(CAM_REQ, "req %llu, offset %zu",
+		dump_req->issue_req_id, dump_req->offset);
+end:
+	mutex_unlock(&g_crm_core_dev->crm_lock);
+	return 0;
+}
 
 int cam_req_mgr_core_device_init(void)
 {
