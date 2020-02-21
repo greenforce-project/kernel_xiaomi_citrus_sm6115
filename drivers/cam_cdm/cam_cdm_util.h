@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CDM_UTIL_H_
 #define _CAM_CDM_UTIL_H_
+
+/* Max len for tag name for header while dumping cmd buffer*/
+#define CAM_CDM_CMD_TAG_MAX_LEN 32
 
 enum cam_cdm_command {
 	CAM_CDM_CMD_UNUSED = 0x0,
@@ -58,6 +61,10 @@ enum cam_cdm_command {
  *
  * @cdm_required_size_comp_wait: Calculates the size of a comp-wait command
  *                                in dwords.
+ *      @return Size in dwords
+ *
+ * @cdm_required_size_clear_comp_event: Calculates the size of clear-comp-event
+ *                                      command in dwords.
  *      @return Size in dwords
  *
  * @cdm_required_size_changebase: Calculates the size of a change-base command
@@ -118,6 +125,12 @@ enum cam_cdm_command {
  *      @pCmdBuffer: Pointer to command buffer
  *      @mask1: This value decides which comp events to wait (0 - 31).
  *      @mask2: This value decides which comp events to wait (32 - 65).
+ *
+ * @cdm_write_clear_comp_event: Writes a clear comp event cmd into the
+ *                             command buffer.
+ *      @pCmdBuffer: Pointer to command buffer
+ *      @mask1: This value decides which comp events to clear (0 - 31).
+ *      @mask2: This value decides which comp events to clear (32 - 65).
  */
 struct cam_cdm_utils_ops {
 uint32_t (*cdm_get_cmd_header_size)(unsigned int command);
@@ -129,6 +142,7 @@ uint32_t (*cdm_required_size_genirq)(void);
 uint32_t (*cdm_required_size_wait_event)(void);
 uint32_t (*cdm_required_size_changebase)(void);
 uint32_t (*cdm_required_size_comp_wait)(void);
+uint32_t (*cdm_required_size_clear_comp_event)(void);
 uint32_t (*cdm_required_size_prefetch_disable)(void);
 uint32_t (*cdm_offsetof_dmi_addr)(void);
 uint32_t (*cdm_offsetof_indirect_addr)(void);
@@ -171,11 +185,43 @@ uint32_t *(*cdm_write_wait_comp_event)(
 	uint32_t *pCmdBuffer,
 	uint32_t  mask1,
 	uint32_t  mask2);
+uint32_t *(*cdm_write_clear_comp_event)(
+	uint32_t *pCmdBuffer,
+	uint32_t  mask1,
+	uint32_t  mask2);
 uint32_t *(*cdm_write_wait_prefetch_disable)(
 	uint32_t *pCmdBuffer,
 	uint32_t  id,
 	uint32_t  mask1,
 	uint32_t  mask2);
+};
+
+/**
+ * struct cam_cdm_cmd_buf_dump_info; - Camera CDM dump info
+ * @dst_offset:      dst offset
+ * @dst_max_size     max size of destination buffer
+ * @src_start:       source start address
+ * @src_end:         source end   address
+ * @dst_start:       dst start address
+ */
+struct cam_cdm_cmd_buf_dump_info {
+	size_t    dst_offset;
+	size_t    dst_max_size;
+	uint32_t *src_start;
+	uint32_t *src_end;
+	uintptr_t dst_start;
+};
+
+/**
+ * struct cam_cdm_cmd_dump_header- Camera CDM dump header
+ * @tag:       tag name for header
+ * @size:      size of data
+ * @word_size: size of each word
+ */
+struct cam_cdm_cmd_dump_header {
+	uint8_t   tag[CAM_CDM_CMD_TAG_MAX_LEN];
+	uint64_t  size;
+	uint32_t  word_size;
 };
 
 /**
@@ -190,6 +236,18 @@ uint32_t *(*cdm_write_wait_prefetch_disable)(
 void cam_cdm_util_dump_cmd_buf(
 	uint32_t *cmd_buffer_start, uint32_t *cmd_buffer_end);
 
+/**
+ * cam_cdm_util_dump_cmd_bufs_v2()
+ *
+ * @brief:        Util function to cdm command buffers
+ *                to a buffer
+ *
+ * @dump_info:    Information about source and destination buffers
+ *
+ * return SUCCESS/FAILURE
+ */
+int cam_cdm_util_dump_cmd_bufs_v2(
+	struct cam_cdm_cmd_buf_dump_info *dump_info);
 
 
 #endif /* _CAM_CDM_UTIL_H_ */

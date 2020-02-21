@@ -96,7 +96,29 @@ int cam_ope_start(void *hw_priv, void *start_args, uint32_t arg_size)
 
 int cam_ope_stop(void *hw_priv, void *start_args, uint32_t arg_size)
 {
-	return 0;
+	struct cam_hw_info *ope_dev = hw_priv;
+	struct cam_ope_device_core_info *core_info = NULL;
+	int rc = 0;
+
+	if (!hw_priv) {
+		CAM_ERR(CAM_OPE, "Invalid cam_dev_info");
+		return -EINVAL;
+	}
+
+	core_info = (struct cam_ope_device_core_info *)ope_dev->core_info;
+	if (!core_info) {
+		CAM_ERR(CAM_OPE, "core_info = %pK", core_info);
+		return -EINVAL;
+	}
+
+	if (core_info->cpas_start) {
+		if (cam_cpas_stop(core_info->cpas_handle))
+			CAM_ERR(CAM_OPE, "cpas stop is failed");
+		else
+			core_info->cpas_start = false;
+	}
+
+	return rc;
 }
 
 int cam_ope_flush(void *hw_priv, void *flush_args, uint32_t arg_size)
@@ -149,7 +171,7 @@ int cam_ope_init_hw(void *device_priv,
 	struct cam_hw_info *ope_dev = device_priv;
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_ope_device_core_info *core_info = NULL;
-	struct cam_ope_cpas_vote cpas_vote;
+	struct cam_ope_cpas_vote *cpas_vote;
 	int rc = 0;
 	struct cam_ope_dev_init *init;
 	struct ope_hw *ope_hw;
@@ -170,30 +192,36 @@ int cam_ope_init_hw(void *device_priv,
 	}
 	ope_hw = core_info->ope_hw_info->ope_hw;
 
+	cpas_vote = kzalloc(sizeof(struct cam_ope_cpas_vote), GFP_KERNEL);
+	if (!cpas_vote) {
+		CAM_ERR(CAM_ISP, "Out of memory");
+		rc = -ENOMEM;
+		goto end;
+	}
 
-	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.num_paths = 1;
-	cpas_vote.axi_vote.axi_path[0].path_data_type =
+	cpas_vote->ahb_vote.type = CAM_VOTE_ABSOLUTE;
+	cpas_vote->ahb_vote.vote.level = CAM_SVS_VOTE;
+	cpas_vote->axi_vote.num_paths = 1;
+	cpas_vote->axi_vote.axi_path[0].path_data_type =
 		CAM_AXI_PATH_DATA_ALL;
-	cpas_vote.axi_vote.axi_path[0].transac_type =
+	cpas_vote->axi_vote.axi_path[0].transac_type =
 		CAM_AXI_TRANSACTION_WRITE;
-	cpas_vote.axi_vote.axi_path[0].camnoc_bw =
+	cpas_vote->axi_vote.axi_path[0].camnoc_bw =
 		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].mnoc_ab_bw =
+	cpas_vote->axi_vote.axi_path[0].mnoc_ab_bw =
 		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].mnoc_ib_bw =
+	cpas_vote->axi_vote.axi_path[0].mnoc_ib_bw =
 		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].ddr_ab_bw =
+	cpas_vote->axi_vote.axi_path[0].ddr_ab_bw =
 		CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.axi_path[0].ddr_ib_bw =
+	cpas_vote->axi_vote.axi_path[0].ddr_ib_bw =
 		CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
-		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
+		&cpas_vote->ahb_vote, &cpas_vote->axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_OPE, "cpass start failed: %d", rc);
-		goto end;
+		goto free_cpas_vote;
 	}
 	core_info->cpas_start = true;
 
@@ -211,7 +239,7 @@ int cam_ope_init_hw(void *device_priv,
 	if (rc)
 		goto process_init_failed;
 	else
-		goto end;
+		goto free_cpas_vote;
 
 process_init_failed:
 	if (cam_ope_disable_soc_resources(soc_info, core_info->clk_enable))
@@ -221,6 +249,9 @@ enable_soc_resource_failed:
 		CAM_ERR(CAM_OPE, "cpas stop is failed");
 	else
 		core_info->cpas_start = false;
+free_cpas_vote:
+	kzfree(cpas_vote);
+	cpas_vote = NULL;
 end:
 	return rc;
 }
@@ -250,13 +281,6 @@ int cam_ope_deinit_hw(void *device_priv,
 	if (rc)
 		CAM_ERR(CAM_OPE, "soc disable is failed : %d", rc);
 	core_info->clk_enable = false;
-
-	if (core_info->cpas_start) {
-		if (cam_cpas_stop(core_info->cpas_handle))
-			CAM_ERR(CAM_OPE, "cpas stop is failed");
-		else
-			core_info->cpas_start = false;
-	}
 
 	return rc;
 }
@@ -453,119 +477,6 @@ static int dump_stripe_cmd(struct ope_frame_process *frm_proc,
 	CAM_DBG(CAM_OPE, "offset:%d",
 		frm_proc->cmd_buf[i][k].offset);
 	return 0;
-}
-
-static uint32_t *ope_create_frame_cmd_prefetch_dis(
-	struct cam_ope_hw_mgr *hw_mgr,
-	struct cam_ope_ctx *ctx_data, uint32_t req_idx,
-	uint32_t *kmd_buf, uint32_t buffered, int batch_idx,
-	struct cam_ope_dev_prepare_req *ope_dev_prepare_req)
-{
-	int rc = 0, i, j;
-	uint32_t temp[3];
-	struct cam_ope_request *ope_request;
-	struct cdm_dmi_cmd *dmi_cmd;
-	struct ope_bus_wr_io_port_cdm_info *wr_cdm_info;
-	struct ope_bus_rd_io_port_cdm_info *rd_cdm_info;
-	struct ope_frame_process *frm_proc;
-	dma_addr_t iova_addr;
-	uintptr_t cpu_addr;
-	size_t buf_len;
-	uint32_t print_idx;
-	uint32_t *print_ptr;
-	int num_dmi = 0;
-	struct cam_cdm_utils_ops *cdm_ops;
-
-	frm_proc = ope_dev_prepare_req->frame_process;
-	ope_request = ctx_data->req_list[req_idx];
-	cdm_ops = ctx_data->ope_cdm.cdm_ops;
-	wr_cdm_info =
-		&ope_dev_prepare_req->wr_cdm_batch->io_port_cdm[0];
-	rd_cdm_info =
-		&ope_dev_prepare_req->rd_cdm_batch->io_port_cdm[0];
-
-	if (batch_idx >= OPE_MAX_BATCH_SIZE) {
-		CAM_ERR(CAM_OPE, "Invalid input: %d", batch_idx);
-		return NULL;
-	}
-
-	i = batch_idx;
-
-	for (j = 0; j < frm_proc->num_cmd_bufs[i]; j++) {
-		if (frm_proc->cmd_buf[i][j].cmd_buf_scope !=
-			OPE_CMD_BUF_SCOPE_FRAME)
-			continue;
-
-		if (frm_proc->cmd_buf[i][j].cmd_buf_usage ==
-			OPE_CMD_BUF_KMD ||
-			frm_proc->cmd_buf[i][j].cmd_buf_usage ==
-			OPE_CMD_BUF_DEBUG)
-			continue;
-
-		if (frm_proc->cmd_buf[i][j].prefetch_disable &&
-			frm_proc->cmd_buf[i][j].cmd_buf_buffered !=
-			buffered)
-			continue;
-
-		if (!frm_proc->cmd_buf[i][j].mem_handle)
-			continue;
-
-		rc = cam_mem_get_io_buf(
-			frm_proc->cmd_buf[i][j].mem_handle,
-			hw_mgr->iommu_cdm_hdl, &iova_addr, &buf_len);
-		if (rc) {
-			CAM_ERR(CAM_OPE, "get cmd buf failed %x",
-				hw_mgr->iommu_hdl);
-			return NULL;
-		}
-		iova_addr = iova_addr + frm_proc->cmd_buf[i][j].offset;
-
-		rc = cam_mem_get_cpu_buf(
-			frm_proc->cmd_buf[i][j].mem_handle,
-			&cpu_addr, &buf_len);
-		if (rc || !cpu_addr) {
-			CAM_ERR(CAM_OPE, "get cmd buf failed %x",
-				hw_mgr->iommu_hdl);
-			return NULL;
-		}
-
-		cpu_addr = cpu_addr + frm_proc->cmd_buf[i][j].offset;
-		if (frm_proc->cmd_buf[i][j].type ==
-			OPE_CMD_BUF_TYPE_DIRECT) {
-			kmd_buf = cdm_ops->cdm_write_indirect(kmd_buf,
-				iova_addr,
-				frm_proc->cmd_buf[i][j].length);
-			print_ptr = (uint32_t *)cpu_addr;
-			dump_frame_direct(print_idx, print_ptr,
-				frm_proc, i, j);
-		} else {
-			num_dmi = frm_proc->cmd_buf[i][j].length /
-				sizeof(struct cdm_dmi_cmd);
-			CAM_DBG(CAM_OPE, "Frame DB : In direct: E");
-			print_ptr = (uint32_t *)cpu_addr;
-			for (print_idx = 0;
-				print_idx < num_dmi; print_idx++) {
-				memcpy(temp, (const void *)print_ptr,
-					sizeof(struct cdm_dmi_cmd));
-				dmi_cmd = (struct cdm_dmi_cmd *)temp;
-				kmd_buf = cdm_ops->cdm_write_dmi(
-					kmd_buf,
-					0, dmi_cmd->DMIAddr,
-					dmi_cmd->DMISel, dmi_cmd->addr,
-					dmi_cmd->length);
-				dump_dmi_cmd(print_idx,
-					print_ptr, dmi_cmd, temp);
-				print_ptr +=
-					sizeof(struct cdm_dmi_cmd) /
-					sizeof(uint32_t);
-			}
-			CAM_DBG(CAM_OPE, "Frame DB : In direct: X");
-		}
-		dump_frame_cmd(frm_proc, i, j,
-			iova_addr, kmd_buf, buf_len);
-	}
-	return kmd_buf;
-
 }
 
 static uint32_t *ope_create_frame_cmd_batch(struct cam_ope_hw_mgr *hw_mgr,
@@ -1282,6 +1193,9 @@ static int cam_ope_dev_create_kmd_buf_nrt(struct cam_ope_hw_mgr *hw_mgr,
 
 	cdm_ops = ctx_data->ope_cdm.cdm_ops;
 
+	kmd_buf = cdm_ops->cdm_write_clear_comp_event(kmd_buf,
+				OPE_WAIT_COMP_IDLE|OPE_WAIT_COMP_RUP, 0x0);
+
 	/* Frame 0 DB */
 	kmd_buf = ope_create_frame_cmd(hw_mgr,
 		ctx_data, req_idx,
@@ -1364,6 +1278,8 @@ static int cam_ope_dev_create_kmd_buf_batch(struct cam_ope_hw_mgr *hw_mgr,
 		(kmd_buf_offset / sizeof(len));
 	cdm_kmd_start_addr = kmd_buf;
 	cdm_ops = ctx_data->ope_cdm.cdm_ops;
+	kmd_buf = cdm_ops->cdm_write_clear_comp_event(kmd_buf,
+				OPE_WAIT_COMP_IDLE|OPE_WAIT_COMP_RUP, 0x0);
 
 	for (i = 0; i < frm_proc->batch_size; i++) {
 		wr_cdm_info =
@@ -1373,15 +1289,6 @@ static int cam_ope_dev_create_kmd_buf_batch(struct cam_ope_hw_mgr *hw_mgr,
 
 		/* After second batch DB programming add prefecth dis */
 		if (i) {
-			/* program db buffered prefecth disable cmds */
-			kmd_buf = ope_create_frame_cmd_prefetch_dis(hw_mgr,
-				ctx_data, req_idx,
-				kmd_buf, OPE_CMD_BUF_DOUBLE_BUFFERED, i,
-				ope_dev_prepare_req);
-			if (!kmd_buf) {
-				rc = -EINVAL;
-				goto end;
-			}
 			kmd_buf =
 				cdm_ops->cdm_write_wait_prefetch_disable(
 				kmd_buf, 0x0,
@@ -1500,6 +1407,8 @@ static int cam_ope_dev_create_kmd_buf(struct cam_ope_hw_mgr *hw_mgr,
 	CAM_DBG(CAM_OPE, "kmd_buf:%x req_idx:%d req_id:%lld offset:%d",
 		kmd_buf, req_idx, ope_request->request_id, kmd_buf_offset);
 
+	kmd_buf = cdm_ops->cdm_write_clear_comp_event(kmd_buf,
+				OPE_WAIT_COMP_IDLE|OPE_WAIT_COMP_RUP, 0x0);
 	/* Frame 0 DB */
 	kmd_buf = ope_create_frame_cmd(hw_mgr,
 		ctx_data, req_idx,

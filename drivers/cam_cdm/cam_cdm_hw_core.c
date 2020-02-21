@@ -22,6 +22,7 @@
 #include "cam_cdm_hw_reg_1_1.h"
 #include "cam_cdm_hw_reg_1_2.h"
 #include "cam_cdm_hw_reg_2_0.h"
+#include "cam_trace.h"
 
 #define CAM_CDM_BL_FIFO_WAIT_TIMEOUT 2000
 #define CAM_CDM_DBG_GEN_IRQ_USR_DATA 0xff
@@ -631,10 +632,13 @@ int cam_hw_cdm_submit_gen_irq(
 	int rc;
 	bool bit_wr_enable = false;
 
-	if (core->bl_fifo[fifo_idx].bl_tag > 63) {
+	if (core->bl_fifo[fifo_idx].bl_tag >
+		(core->bl_fifo[fifo_idx].bl_depth - 1)) {
 		CAM_ERR(CAM_CDM,
-			"bl_tag invalid =%d",
-			core->bl_fifo[fifo_idx].bl_tag);
+			"Invalid bl_tag=%d bl_depth=%d fifo_idx=%d",
+			core->bl_fifo[fifo_idx].bl_tag,
+			core->bl_fifo[fifo_idx].bl_depth,
+			fifo_idx);
 		rc = -EINVAL;
 		goto end;
 	}
@@ -687,6 +691,8 @@ int cam_hw_cdm_submit_gen_irq(
 		kfree(node);
 		rc = -EIO;
 	}
+
+	trace_cam_log_event("CDM_START", "CDM_START_IRQ", req->data->cookie, 0);
 
 end:
 	return rc;
@@ -767,12 +773,16 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 			bl_fifo->bl_depth);
 	}
 
-	if (test_bit(CAM_CDM_ERROR_HW_STATUS, &core->cdm_status) ||
-			test_bit(CAM_CDM_RESET_HW_STATUS, &core->cdm_status))
-		return -EAGAIN;
 
 	mutex_lock(&core->bl_fifo[fifo_idx].fifo_lock);
 	mutex_lock(&client->lock);
+
+	if (test_bit(CAM_CDM_ERROR_HW_STATUS, &core->cdm_status) ||
+			test_bit(CAM_CDM_RESET_HW_STATUS, &core->cdm_status)) {
+		mutex_unlock(&client->lock);
+		mutex_unlock(&core->bl_fifo[fifo_idx].fifo_lock);
+		return -EAGAIN;
+	}
 
 	rc = cam_hw_cdm_bl_fifo_pending_bl_rb_in_fifo(cdm_hw,
 		fifo_idx, &pending_bl);
@@ -1079,7 +1089,10 @@ static void cam_hw_cdm_iommu_fault_handler(struct iommu_domain *domain,
 		mutex_lock(&cdm_hw->hw_mutex);
 		for (i = 0; i < core->offsets->reg_data->num_bl_fifo; i++)
 			mutex_lock(&core->bl_fifo[i].fifo_lock);
-		cam_hw_cdm_dump_core_debug_registers(cdm_hw);
+		if (cdm_hw->hw_state == CAM_HW_STATE_POWER_UP)
+			cam_hw_cdm_dump_core_debug_registers(cdm_hw);
+		else
+			CAM_INFO(CAM_CDM, "CDM hw is power in off state");
 		for (i = 0; i < core->offsets->reg_data->num_bl_fifo; i++)
 			mutex_unlock(&core->bl_fifo[i].fifo_lock);
 		mutex_unlock(&cdm_hw->hw_mutex);
@@ -1154,6 +1167,10 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 
 		INIT_WORK((struct work_struct *)&payload[i]->work,
 			cam_hw_cdm_work);
+
+		trace_cam_log_event("CDM_DONE", "CDM_DONE_IRQ",
+			payload[i]->irq_status,
+			cdm_hw->soc_info.index);
 
 		if (cam_cdm_write_hw_reg(cdm_hw,
 				cdm_core->offsets->irq_reg[i]->irq_clear,
@@ -1319,12 +1336,13 @@ int cam_hw_cdm_handle_error_info(
 
 	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 
-	set_bit(CAM_CDM_RESET_HW_STATUS, &cdm_core->cdm_status);
-	set_bit(CAM_CDM_FLUSH_HW_STATUS, &cdm_core->cdm_status);
 	reinit_completion(&cdm_core->reset_complete);
 
 	for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++)
 		mutex_lock(&cdm_core->bl_fifo[i].fifo_lock);
+
+	set_bit(CAM_CDM_RESET_HW_STATUS, &cdm_core->cdm_status);
+	set_bit(CAM_CDM_FLUSH_HW_STATUS, &cdm_core->cdm_status);
 
 	rc = cam_cdm_read_hw_reg(cdm_hw,
 			cdm_core->offsets->cmn_reg->current_bl_len,

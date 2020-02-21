@@ -54,7 +54,8 @@ static int cam_tfe_mgr_regspace_data_cb(uint32_t reg_base_type,
 
 	*soc_info_ptr = NULL;
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_tfe_in, list) {
-		if (hw_mgr_res->res_id != CAM_ISP_HW_TFE_IN_CAMIF)
+		if ((hw_mgr_res->res_id != CAM_ISP_HW_TFE_IN_CAMIF) &&
+			!ctx->is_rdi_only_context)
 			continue;
 
 		switch (reg_base_type) {
@@ -140,7 +141,9 @@ static int cam_tfe_mgr_handle_reg_dump(struct cam_tfe_hw_mgr_ctx *ctx,
 			rc = cam_soc_util_reg_dump_to_cmd_buf(ctx,
 				&reg_dump_buf_desc[i],
 				ctx->applied_req_id,
-				cam_tfe_mgr_regspace_data_cb);
+				cam_tfe_mgr_regspace_data_cb,
+				NULL,
+				false);
 			if (rc) {
 				CAM_ERR(CAM_ISP,
 					"Reg dump failed at idx: %d, rc: %d req_id: %llu meta type: %u",
