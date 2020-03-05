@@ -380,16 +380,24 @@ static struct msm_vidc_codec_capability lito_capabilities_v1[] = {
 
 static struct msm_vidc_codec_capability lagoon_capabilities_v0[] = {
 	/* {cap_type, domains, codecs, min, max, step_size, default_value,} */
-	{CAP_FRAME_WIDTH, DOMAINS_ALL, CODECS_ALL, 128, 4096, 1, 1920},
-	{CAP_FRAME_HEIGHT, DOMAINS_ALL, CODECS_ALL, 128, 4096, 1, 1080},
+	/* Encode spec */
+	{CAP_FRAME_WIDTH, ENC, CODECS_ALL, 128, 4096, 1, 1920},
+	{CAP_FRAME_HEIGHT, ENC, CODECS_ALL, 128, 4096, 1, 1080},
 	/* (4096 * 2176) / 256 */
-	{CAP_MBS_PER_FRAME, DOMAINS_ALL, CODECS_ALL, 64, 34816, 1, 8160},
+	{CAP_MBS_PER_FRAME, ENC, CODECS_ALL, 64, 34816, 1, 8160},
 	/* ((3840 * 2176) / 256) * 30 fps */
 	{CAP_MBS_PER_SECOND, ENC, CODECS_ALL, 64, 979200, 1, 244800},
+	{CAP_FRAMERATE, ENC, CODECS_ALL, 1, 240, 1, 30},
+
+	/* Decode spec */
+	{CAP_FRAME_WIDTH, DEC, CODECS_ALL, 128, 5760, 1, 1920},
+	{CAP_FRAME_HEIGHT, DEC, CODECS_ALL, 128, 5760, 1, 1080},
+	/*  (5760 * 2880) / 256 */
+	{CAP_MBS_PER_FRAME, DEC, CODECS_ALL, 64, 64800, 1, 8160},
 	/* ((3840 * 2176) / 256) * 60 fps */
 	{CAP_MBS_PER_SECOND, DEC, CODECS_ALL, 64, 1958400, 1, 244800},
-	{CAP_FRAMERATE, ENC, CODECS_ALL, 1, 240, 1, 30},
 	{CAP_FRAMERATE, DEC, CODECS_ALL, 1, 480, 1, 30},
+
 	{CAP_OPERATINGRATE, DOMAINS_ALL, CODECS_ALL, 1, INT_MAX, 1, 30},
 	{CAP_BITRATE, DOMAINS_ALL, CODECS_ALL, 1, 100000000, 1, 20000000},
 	{CAP_CABAC_BITRATE, ENC, H264, 1, 100000000, 1, 20000000},
@@ -1691,6 +1699,7 @@ static struct msm_vidc_platform_data default_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
+	.num_vpp_pipes = 0x4,
 	.ubwc_config = 0x0,
 };
 
@@ -1706,6 +1715,7 @@ static struct msm_vidc_platform_data lito_data = {
 	.efuse_data_length = ARRAY_SIZE(lito_efuse_data),
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS1,
+	.num_vpp_pipes = 0x2,
 	.ubwc_config = 0x0,
 	.codecs = default_codecs,
 	.codecs_count = ARRAY_SIZE(default_codecs),
@@ -1725,6 +1735,7 @@ static struct msm_vidc_platform_data kona_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS2,
+	.num_vpp_pipes = 0x4,
 	.ubwc_config = kona_ubwc_data,
 	.codecs = default_codecs,
 	.codecs_count = ARRAY_SIZE(default_codecs),
@@ -1744,6 +1755,7 @@ static struct msm_vidc_platform_data lagoon_data = {
 	.efuse_data_length = ARRAY_SIZE(lagoon_efuse_data),
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS2_1,
+	.num_vpp_pipes = 0x1,
 	.ubwc_config = 0x0,
 	.codecs = lagoon_codecs,
 	.codecs_count = ARRAY_SIZE(lagoon_codecs),
@@ -1763,6 +1775,7 @@ static struct msm_vidc_platform_data sm6150_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.num_vpp_pipes = 0x1,
 	.ubwc_config = 0x0,
 };
 
@@ -1778,6 +1791,7 @@ static struct msm_vidc_platform_data bengal_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_AR50_LITE,
+	.num_vpp_pipes = 0x1,
 	.ubwc_config = 0x0,
 	.codecs = bengal_codecs,
 	.codecs_count = ARRAY_SIZE(bengal_codecs),
@@ -1797,6 +1811,7 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_IRIS1,
+	.num_vpp_pipes = 0x2,
 	.ubwc_config = 0x0,
 };
 
@@ -1812,6 +1827,7 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.num_vpp_pipes = 0x1,
 	.ubwc_config = 0x0,
 };
 
@@ -1827,6 +1843,7 @@ static struct msm_vidc_platform_data sdm670_data = {
 	.efuse_data_length = ARRAY_SIZE(sdm670_efuse_data),
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_AR50,
+	.num_vpp_pipes = 0x1,
 	.ubwc_config = 0x0,
 };
 
