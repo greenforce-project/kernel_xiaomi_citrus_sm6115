@@ -629,6 +629,7 @@ static void __cam_isp_ctx_send_sof_boot_timestamp(
 	req_msg.u.frame_msg.timestamp = ctx_isp->boot_timestamp;
 	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
 	req_msg.u.frame_msg.sof_status = sof_event_status;
+	req_msg.u.frame_msg.frame_id_meta = ctx_isp->frame_id_meta;
 
 	CAM_DBG(CAM_ISP,
 		"request id:%lld frame number:%lld boot time stamp:0x%llx",
@@ -656,6 +657,7 @@ static void __cam_isp_ctx_send_sof_timestamp(
 	req_msg.u.frame_msg.timestamp = ctx_isp->sof_timestamp_val;
 	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
 	req_msg.u.frame_msg.sof_status = sof_event_status;
+	req_msg.u.frame_msg.frame_id_meta = ctx_isp->frame_id_meta;
 
 	CAM_DBG(CAM_ISP,
 		"request id:%lld frame number:%lld SOF time stamp:0x%llx",
@@ -759,10 +761,28 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 		}
 
 		if (j == req_isp->num_fence_map_out) {
-			CAM_ERR(CAM_ISP,
-				"Can not find matching lane handle 0x%x!",
-				done->resource_handle[i]);
-			rc = -EINVAL;
+			if (done_next_req) {
+				/*
+				 * If not found in current request, it could be
+				 * belonging to next request, This can happen if
+				 * IRQ delay happens.
+				 */
+				CAM_WARN(CAM_ISP,
+					"BUF_DONE for res 0x%x not found in Req %lld ",
+					__cam_isp_resource_handle_id_to_type(
+					done->resource_handle[i]),
+					req->request_id);
+
+				done_next_req->resource_handle
+					[done_next_req->num_handles++] =
+					done->resource_handle[i];
+			} else {
+				CAM_ERR(CAM_ISP,
+					"Can not find matching lane handle 0x%x! in Req %lld",
+					done->resource_handle[i],
+					req->request_id);
+				rc = -EINVAL;
+			}
 			continue;
 		}
 
@@ -1040,11 +1060,20 @@ static int __cam_isp_ctx_notify_sof_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
 	int rc = 0;
+	uint64_t  request_id  = 0;
 	struct cam_req_mgr_trigger_notify  notify;
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_ctx_request  *req;
 	struct cam_isp_ctx_req  *req_isp;
-	uint64_t  request_id  = 0;
+	struct cam_isp_hw_epoch_event_data *epoch_done_event_data =
+			(struct cam_isp_hw_epoch_event_data *)evt_data;
+
+	if (!evt_data) {
+		CAM_ERR(CAM_ISP, "invalid event data");
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id_meta = epoch_done_event_data->frame_id_meta;
 
 	/*
 	 * notify reqmgr with sof signal. Note, due to scheduling delay
@@ -1261,11 +1290,19 @@ end:
 static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 	void *evt_data)
 {
-	struct cam_ctx_request    *req;
-	struct cam_isp_ctx_req    *req_isp;
-	struct cam_context        *ctx = ctx_isp->base;
-	uint64_t  request_id = 0;
+	uint64_t request_id = 0;
+	struct cam_ctx_request             *req;
+	struct cam_isp_ctx_req             *req_isp;
+	struct cam_context                 *ctx = ctx_isp->base;
+	struct cam_isp_hw_epoch_event_data *epoch_done_event_data =
+		(struct cam_isp_hw_epoch_event_data *)evt_data;
 
+	if (!evt_data) {
+		CAM_ERR(CAM_ISP, "invalid event data");
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id_meta = epoch_done_event_data->frame_id_meta;
 	if (list_empty(&ctx->wait_req_list)) {
 		/*
 		 * If no wait req in epoch, this is an error case.
@@ -1298,6 +1335,11 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
+		notify.trigger = 0;
+		if (ctx_isp->subscribe_event & CAM_TRIGGER_POINT_SOF)
+			notify.trigger = CAM_TRIGGER_POINT_SOF;
+		notify.frame_id = ctx_isp->frame_id;
+		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 		CAM_WARN(CAM_ISP,
 			"Notify CRM about Bubble req %lld frame %lld, ctx %u",
 			req->request_id, ctx_isp->frame_id, ctx->ctx_id);
@@ -1426,10 +1468,19 @@ static int __cam_isp_ctx_buf_done_in_bubble(
 static int __cam_isp_ctx_epoch_in_bubble_applied(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
-	struct cam_ctx_request    *req;
-	struct cam_isp_ctx_req    *req_isp;
-	struct cam_context        *ctx = ctx_isp->base;
 	uint64_t  request_id = 0;
+	struct cam_ctx_request             *req;
+	struct cam_isp_ctx_req             *req_isp;
+	struct cam_context                 *ctx = ctx_isp->base;
+	struct cam_isp_hw_epoch_event_data *epoch_done_event_data =
+		(struct cam_isp_hw_epoch_event_data *)evt_data;
+
+	if (!evt_data) {
+		CAM_ERR(CAM_ISP, "invalid event data");
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id_meta = epoch_done_event_data->frame_id_meta;
 
 	/*
 	 * This means we missed the reg upd ack. So we need to
@@ -1467,6 +1518,11 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
+		notify.trigger = 0;
+		if (ctx_isp->subscribe_event & CAM_TRIGGER_POINT_SOF)
+			notify.trigger = CAM_TRIGGER_POINT_SOF;
+		notify.frame_id = ctx_isp->frame_id;
+		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 		CAM_WARN(CAM_REQ,
 			"Notify CRM about Bubble req_id %llu frame %lld, ctx %u",
 			req->request_id, ctx_isp->frame_id, ctx->ctx_id);
@@ -2975,6 +3031,11 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		notify.dev_hdl = ctx->dev_hdl;
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
+		notify.trigger = 0;
+		if (ctx_isp->subscribe_event & CAM_TRIGGER_POINT_SOF)
+			notify.trigger = CAM_TRIGGER_POINT_SOF;
+		notify.frame_id = ctx_isp->frame_id;
+		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 		CAM_WARN(CAM_ISP,
 			"Notify CRM about Bubble req %lld frame %lld ctx %u",
 			req->request_id,

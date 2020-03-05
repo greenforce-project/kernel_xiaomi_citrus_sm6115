@@ -85,6 +85,7 @@ static int cam_ope_mgr_process_cmd(void *priv, void *data)
 	struct ope_cmd_work_data *task_data = NULL;
 	struct cam_ope_ctx *ctx_data;
 	struct cam_cdm_bl_request *cdm_cmd;
+	struct cam_ope_hw_mgr *hw_mgr = ope_hw_mgr;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_OPE, "Invalid params%pK %pK", data, priv);
@@ -97,12 +98,27 @@ static int cam_ope_mgr_process_cmd(void *priv, void *data)
 
 	CAM_DBG(CAM_OPE, "cam_cdm_submit_bls: handle = %u",
 		ctx_data->ope_cdm.cdm_handle);
+
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	if (task_data->req_id <= ctx_data->last_flush_req) {
+		CAM_WARN(CAM_OPE,
+			"request %lld has been flushed, reject packet",
+			task_data->req_id, ctx_data->last_flush_req);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+
+	if (task_data->req_id > ctx_data->last_flush_req)
+		ctx_data->last_flush_req = 0;
+
 	rc = cam_cdm_submit_bls(ctx_data->ope_cdm.cdm_handle, cdm_cmd);
 
 	if (!rc)
 		ctx_data->req_cnt++;
 	else
 		CAM_ERR(CAM_OPE, "submit failed for %lld", cdm_cmd->cookie);
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return rc;
 }
@@ -326,7 +342,7 @@ static int32_t cam_ope_process_request_timer(void *priv, void *data)
 	ts_ns = (uint64_t)((ts.tv_sec * 1000000000) +
 		ts.tv_nsec);
 	if (ts_ns - ctx_data->last_req_time <
-		OPE_REQUEST_TIMEOUT * 1000000) {
+		((OPE_REQUEST_TIMEOUT - OPE_REQUEST_TIMEOUT / 10) * 1000000)) {
 		mutex_unlock(&ctx_data->ctx_mutex);
 		return 0;
 	}
@@ -1187,27 +1203,30 @@ static void cam_ope_ctx_cdm_callback(uint32_t handle, void *userdata,
 		return;
 	}
 
-	CAM_DBG(CAM_OPE, "CDM hdl=%x, udata=%pK, status=%d, cookie=%llu",
-		handle, userdata, status, cookie);
-
 	if (cookie >= CAM_CTX_REQ_MAX) {
 		CAM_ERR(CAM_OPE, "Invalid reqIdx = %llu", cookie);
 		return;
 	}
 
 	ctx = userdata;
-
 	mutex_lock(&ctx->ctx_mutex);
 
 	if (!test_bit(cookie, ctx->bitmap)) {
-		CAM_INFO(CAM_OPE, "Request not present reqIdx = %d", cookie);
+		CAM_ERR(CAM_OPE, "Req not present reqIdx = %d for ctx_id = %d",
+			cookie, ctx->ctx_id);
 		goto end;
 	}
 
 	ope_req = ctx->req_list[cookie];
 
+	CAM_DBG(CAM_REQ,
+		"hdl=%x, udata=%pK, status=%d, cookie=%d",
+		handle, userdata, status, cookie);
+	CAM_DBG(CAM_REQ, "req_id= %llu ctx_id= %d",
+		ope_req->request_id, ctx->ctx_id);
+
 	if (ctx->ctx_state != OPE_CTX_STATE_ACQUIRED) {
-		CAM_DBG(CAM_OPE, "ctx %u is in %d state",
+		CAM_ERR(CAM_OPE, "ctx %u is in %d state",
 			ctx->ctx_id, ctx->ctx_state);
 		mutex_unlock(&ctx->ctx_mutex);
 		return;
@@ -1227,8 +1246,9 @@ static void cam_ope_ctx_cdm_callback(uint32_t handle, void *userdata,
 			goto end;
 	} else {
 		CAM_ERR(CAM_OPE,
-			"CDM hdl=%x, udata=%pK, status=%d, cookie=%d req_id = %llu",
-			 handle, userdata, status, cookie, ope_req->request_id);
+			"CDM hdl=%x, udata=%pK, status=%d, cookie=%d req_id = %llu ctx_id=%d",
+			 handle, userdata, status, cookie,
+			 ope_req->request_id, ctx->ctx_id);
 		CAM_ERR(CAM_OPE, "Rst of CDM and OPE for error reqid = %lld",
 			ope_req->request_id);
 		rc = cam_ope_mgr_reset_hw();
@@ -1353,9 +1373,13 @@ static int cam_ope_mgr_process_io_cfg(struct cam_ope_hw_mgr *hw_mgr,
 					k++;
 					prep_args->num_out_map_entries++;
 				} else {
-					CAM_ERR(CAM_OPE, "Invalid fence %d %d",
+					if (io_buf->resource_type
+						!= OPE_OUT_RES_STATS_LTM) {
+						CAM_ERR(CAM_OPE,
+						"Invalid fence %d %d",
 						io_buf->resource_type,
 						ope_request->request_id);
+					}
 				}
 			}
 			CAM_DBG(CAM_REQ,
@@ -2288,6 +2312,7 @@ static int cam_ope_mgr_acquire_hw(void *hw_priv, void *hw_acquire_args)
 	mutex_unlock(&ctx->ctx_mutex);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
+	CAM_INFO(CAM_OPE, "OPE: %d acquire succesfull rc %d", ctx_id, rc);
 	return rc;
 
 free_bw_update:
@@ -2454,6 +2479,7 @@ static int cam_ope_mgr_release_ctx(struct cam_ope_hw_mgr *hw_mgr, int ctx_id)
 	cam_ope_req_timer_stop(&hw_mgr->ctx[ctx_id]);
 	hw_mgr->ctx[ctx_id].ope_cdm.cdm_handle = 0;
 	hw_mgr->ctx[ctx_id].req_cnt = 0;
+	hw_mgr->ctx[ctx_id].last_flush_req = 0;
 	cam_ope_put_free_ctx(hw_mgr, ctx_id);
 
 	rc = cam_ope_mgr_ope_clk_remove(hw_mgr, ctx_id);
@@ -2704,14 +2730,18 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 	rc = cam_packet_util_validate_packet(packet, prepare_args->remain_len);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "packet validation is failed: %d", rc);
+		CAM_ERR(CAM_OPE,
+			"packet validation failed: %d req_id: %d ctx: %d",
+			rc, packet->header.request_id, ctx_data->ctx_id);
 		return rc;
 	}
 
 	rc = cam_ope_mgr_pkt_validation(packet);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "ope packet validation is failed");
+		CAM_ERR(CAM_OPE,
+			"ope packet validation failed: %d req_id: %d ctx: %d",
+			rc, packet->header.request_id, ctx_data->ctx_id);
 		return -EINVAL;
 	}
 
@@ -2719,7 +2749,8 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 		hw_mgr->iommu_sec_cdm_hdl);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "Patching is failed: %d", rc);
+		CAM_ERR(CAM_OPE, "Patching failed: %d req_id: %d ctx: %d",
+			rc, packet->header.request_id, ctx_data->ctx_id);
 		return -EINVAL;
 	}
 
@@ -2737,6 +2768,8 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 	ctx_data->req_list[request_idx] =
 		kzalloc(sizeof(struct cam_ope_request), GFP_KERNEL);
 	if (!ctx_data->req_list[request_idx]) {
+		CAM_ERR(CAM_OPE, "mem allocation failed ctx:%d req_idx:%d",
+			ctx_data->ctx_id, request_idx);
 		rc = -ENOMEM;
 		mutex_unlock(&ctx_data->ctx_mutex);
 		goto req_mem_alloc_failed;
@@ -2749,6 +2782,8 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 			sizeof(struct cam_cdm_bl_cmd))),
 			GFP_KERNEL);
 	if (!ope_req->cdm_cmd) {
+		CAM_ERR(CAM_OPE, "Cdm mem alloc failed ctx:%d req_idx:%d",
+			ctx_data->ctx_id, request_idx);
 		rc = -ENOMEM;
 		mutex_unlock(&ctx_data->ctx_mutex);
 		goto req_cdm_mem_alloc_failed;
@@ -2758,7 +2793,9 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 		ctx_data, &ope_cmd_buf_addr, request_idx);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "cmd desc processing failed: %d", rc);
+		CAM_ERR(CAM_OPE,
+			"cmd desc processing failed :%d ctx: %d req_id:%d",
+			rc, ctx_data->ctx_id, packet->header.request_id);
 		goto end;
 	}
 
@@ -2766,7 +2803,9 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 		ctx_data, request_idx);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "IO cfg processing failed: %d", rc);
+		CAM_ERR(CAM_OPE,
+			"IO cfg processing failed: %d ctx: %d req_id:%d",
+			rc, ctx_data->ctx_id, packet->header.request_id);
 		goto end;
 	}
 
@@ -2774,7 +2813,9 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 		ctx_data, request_idx, ope_cmd_buf_addr);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "cam_ope_mgr_create_kmd_buf failed: %d", rc);
+		CAM_ERR(CAM_OPE,
+			"create kmd buf failed: %d ctx: %d request_id:%d",
+			rc, ctx_data->ctx_id, packet->header.request_id);
 		goto end;
 	}
 
@@ -2782,7 +2823,9 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 		request_idx, NULL);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
-		CAM_ERR(CAM_OPE, "Failed: %d", rc);
+		CAM_ERR(CAM_OPE, "Failed: %d ctx: %d req_id: %d req_idx: %d",
+			rc, ctx_data->ctx_id, packet->header.request_id,
+			request_idx);
 		goto end;
 	}
 	prepare_args->num_hw_update_entries = 1;
@@ -2792,6 +2835,8 @@ static int cam_ope_mgr_prepare_hw_update(void *hw_priv,
 
 	mutex_unlock(&ctx_data->ctx_mutex);
 
+	CAM_DBG(CAM_REQ, "Prepare Hw update Successful request_id: %d  ctx: %d",
+		packet->header.request_id, ctx_data->ctx_id);
 	return rc;
 
 end:
@@ -2842,8 +2887,9 @@ static int cam_ope_mgr_enqueue_config(struct cam_ope_hw_mgr *hw_mgr,
 	struct cam_ope_request *ope_req = NULL;
 
 	ope_req = config_args->priv;
-	request_id = ope_req->request_id;
+	request_id = config_args->request_id;
 	hw_update_entries = config_args->hw_update_entries;
+
 	CAM_DBG(CAM_OPE, "req_id = %lld %pK", request_id, config_args->priv);
 
 	task = cam_req_mgr_workq_get_task(ope_hw_mgr->cmd_work);
@@ -2902,11 +2948,18 @@ static int cam_ope_mgr_config_hw(void *hw_priv, void *hw_config_args)
 
 	cam_ope_mgr_ope_clk_update(hw_mgr, ctx_data, ope_req->req_idx);
 
+	if (ope_req->request_id <= ctx_data->last_flush_req)
+		CAM_WARN(CAM_OPE,
+			"Anomaly submitting flushed req %llu [last_flush %llu] in ctx %u",
+			ope_req->request_id, ctx_data->last_flush_req,
+			ctx_data->ctx_id);
+
 	rc = cam_ope_mgr_enqueue_config(hw_mgr, ctx_data, config_args);
 	if (rc)
 		goto config_err;
 
-	CAM_DBG(CAM_OPE, "req_id %llu, io config", ope_req->request_id);
+	CAM_DBG(CAM_REQ, "req_id %llu, ctx_id %u io config",
+		ope_req->request_id, ctx_data->ctx_id);
 
 	mutex_unlock(&ctx_data->ctx_mutex);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -3025,6 +3078,7 @@ static int cam_ope_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 {
 	struct cam_hw_flush_args *flush_args = hw_flush_args;
 	struct cam_ope_ctx *ctx_data;
+	struct cam_ope_hw_mgr *hw_mgr = ope_hw_mgr;
 
 	if ((!hw_priv) || (!hw_flush_args)) {
 		CAM_ERR(CAM_OPE, "Input params are Null");
@@ -3044,12 +3098,17 @@ static int cam_ope_mgr_hw_flush(void *hw_priv, void *hw_flush_args)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_REQ, "ctx_id %d Flush type %d",
-			ctx_data->ctx_id, flush_args->flush_type);
-
 	switch (flush_args->flush_type) {
 	case CAM_FLUSH_TYPE_ALL:
+		mutex_lock(&hw_mgr->hw_mgr_mutex);
+		ctx_data->last_flush_req = flush_args->last_flush_req;
+
+		CAM_DBG(CAM_REQ, "ctx_id %d Flush type %d last_flush_req %u",
+				ctx_data->ctx_id, flush_args->flush_type,
+				ctx_data->last_flush_req);
+
 		cam_ope_mgr_flush_all(ctx_data, flush_args);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		break;
 	case CAM_FLUSH_TYPE_REQ:
 		mutex_lock(&ctx_data->ctx_mutex);

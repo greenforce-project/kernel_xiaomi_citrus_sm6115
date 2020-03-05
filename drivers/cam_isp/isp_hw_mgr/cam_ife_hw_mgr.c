@@ -4769,29 +4769,36 @@ static int cam_isp_blob_core_cfg_update(
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 			clk_rate = 0;
-			if (!hw_mgr_res->hw_res[i] ||
-				hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_CAMIF)
+			if (!hw_mgr_res->hw_res[i])
 				continue;
 
-			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
-			if (hw_intf && hw_intf->hw_ops.process_cmd) {
-				vfe_core_config.node_res =
-					hw_mgr_res->hw_res[i];
+			if ((hw_mgr_res->res_id ==
+				CAM_ISP_HW_VFE_IN_CAMIF) ||
+				(hw_mgr_res->res_id ==
+				CAM_ISP_HW_VFE_IN_PDLIB)) {
+				hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+				if (hw_intf && hw_intf->hw_ops.process_cmd) {
+					vfe_core_config.node_res =
+						hw_mgr_res->hw_res[i];
 
-				memcpy(&vfe_core_config.core_config,
-					core_config,
-					sizeof(struct cam_isp_core_config));
+					memcpy(&vfe_core_config.core_config,
+						core_config,
+						sizeof(
+						struct cam_isp_core_config));
 
-				rc = hw_intf->hw_ops.process_cmd(
-					hw_intf->hw_priv,
-					CAM_ISP_HW_CMD_CORE_CONFIG,
-					&vfe_core_config,
-					sizeof(
-					struct cam_vfe_core_config_args));
-				if (rc)
-					CAM_ERR(CAM_ISP, "Core cfg parse fail");
-			} else {
-				CAM_WARN(CAM_ISP, "NULL hw_intf!");
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_CORE_CONFIG,
+						&vfe_core_config,
+						sizeof(
+						struct cam_vfe_core_config_args)
+						);
+					if (rc)
+						CAM_ERR(CAM_ISP,
+						"Core cfg parse fail");
+				} else {
+					CAM_WARN(CAM_ISP, "NULL hw_intf!");
+				}
 			}
 		}
 	}
@@ -6059,41 +6066,42 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_hw_intf                   *hw_intf;
 	struct cam_csid_get_time_stamp_args   csid_get_time;
 
-	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
-		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-			if (!hw_mgr_res->hw_res[i])
-				continue;
+	hw_mgr_res = list_first_entry(&ife_ctx->res_list_ife_csid,
+		struct cam_isp_hw_mgr_res, list);
 
+	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+		if (!hw_mgr_res->hw_res[i])
+			continue;
+
+		/*
+		 * Get the SOF time stamp from left resource only.
+		 * Left resource is master for dual vfe case and
+		 * Rdi only context case left resource only hold
+		 * the RDI resource
+		 */
+
+		hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+		if (hw_intf->hw_ops.process_cmd) {
 			/*
-			 * Get the SOF time stamp from left resource only.
-			 * Left resource is master for dual vfe case and
-			 * Rdi only context case left resource only hold
-			 * the RDI resource
+			 * Single VFE case, Get the time stamp from
+			 * available one csid hw in the context
+			 * Dual VFE case, get the time stamp from
+			 * master(left) would be sufficient
 			 */
 
-			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
-			if (hw_intf->hw_ops.process_cmd) {
-				/*
-				 * Single VFE case, Get the time stamp from
-				 * available one csid hw in the context
-				 * Dual VFE case, get the time stamp from
-				 * master(left) would be sufficient
-				 */
-
-				csid_get_time.node_res =
-					hw_mgr_res->hw_res[i];
-				rc = hw_intf->hw_ops.process_cmd(
-					hw_intf->hw_priv,
-					CAM_IFE_CSID_CMD_GET_TIME_STAMP,
-					&csid_get_time,
-					sizeof(
-					struct cam_csid_get_time_stamp_args));
-				if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
-					*time_stamp =
-						csid_get_time.time_stamp_val;
-					*boot_time_stamp =
-						csid_get_time.boot_timestamp;
-				}
+			csid_get_time.node_res =
+				hw_mgr_res->hw_res[i];
+			rc = hw_intf->hw_ops.process_cmd(
+				hw_intf->hw_priv,
+				CAM_IFE_CSID_CMD_GET_TIME_STAMP,
+				&csid_get_time,
+				sizeof(
+				struct cam_csid_get_time_stamp_args));
+			if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
+				*time_stamp =
+					csid_get_time.time_stamp_val;
+				*boot_time_stamp =
+					csid_get_time.boot_timestamp;
 			}
 		}
 	}
@@ -6141,6 +6149,9 @@ static int cam_ife_mgr_process_recovery_cb(void *priv, void *data)
 				return rc;
 			}
 		}
+
+		if (!g_ife_hw_mgr.debug_cfg.enable_recovery)
+			break;
 
 		CAM_DBG(CAM_ISP, "RESET: CSID PATH");
 		for (i = 0; i < recovery_data->no_of_context; i++) {
@@ -6370,22 +6381,12 @@ static int cam_ife_hw_mgr_handle_hw_err(
 	rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
 		core_idx, &recovery_data);
 
-	if (event_info->res_type == CAM_ISP_RESOURCE_VFE_OUT)
-		return rc;
+	if (event_info->err_type == CAM_VFE_IRQ_STATUS_VIOLATION)
+		recovery_data.error_type = CAM_ISP_HW_ERROR_VIOLATION;
+	else
+		recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
 
-	if (g_ife_hw_mgr.debug_cfg.enable_recovery) {
-		CAM_DBG(CAM_ISP, "IFE Mgr recovery is enabled");
-
-		/* Trigger for recovery */
-		if (event_info->err_type == CAM_VFE_IRQ_STATUS_VIOLATION)
-			recovery_data.error_type = CAM_ISP_HW_ERROR_VIOLATION;
-		else
-			recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
-		cam_ife_hw_mgr_do_error_recovery(&recovery_data);
-	} else {
-		CAM_DBG(CAM_ISP, "recovery is not enabled");
-		rc = 0;
-	}
+	cam_ife_hw_mgr_do_error_recovery(&recovery_data);
 
 	return rc;
 }
@@ -6520,6 +6521,9 @@ static int cam_ife_hw_mgr_handle_hw_epoch(
 		if (!rc) {
 			if (atomic_read(&ife_hw_mgr_ctx->overflow_pending))
 				break;
+
+			epoch_done_event_data.frame_id_meta =
+				event_info->th_reg_val;
 			ife_hw_irq_epoch_cb(ife_hw_mgr_ctx->common.cb_priv,
 				CAM_ISP_HW_EVENT_EPOCH, &epoch_done_event_data);
 		}
