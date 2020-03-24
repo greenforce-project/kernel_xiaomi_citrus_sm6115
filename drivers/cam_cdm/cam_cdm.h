@@ -468,6 +468,7 @@ struct cam_cdm_bl_fifo {
 	struct mutex fifo_lock;
 	uint8_t bl_tag;
 	uint32_t bl_depth;
+	uint8_t last_bl_tag_done;
 };
 
 /**
@@ -495,6 +496,7 @@ struct cam_cdm_bl_fifo {
  * @gen_irq:             memory region in which gen_irq command will be written
  * @cpas_handle:         handle for cpas driver
  * @arbitration:         type of arbitration to be used for the CDM
+ * @rst_done_cnt:        CMD reset done count
  */
 struct cam_cdm {
 	uint32_t index;
@@ -517,6 +519,7 @@ struct cam_cdm {
 	struct cam_cdm_hw_mem gen_irq[CAM_CDM_BL_FIFO_MAX];
 	uint32_t cpas_handle;
 	enum cam_cdm_arbitration arbitration;
+	uint32_t rst_done_cnt;
 };
 
 /* struct cam_cdm_private_dt_data - CDM hw custom dt data */
