@@ -225,12 +225,14 @@ struct cdm_dmi_cmd {
  * @iova_addr:        IOVA address
  * @len:              Buffer length
  * @size:             Buffer Size
+ * @offset:	      buffer offset
  */
 struct ope_debug_buffer {
 	uintptr_t cpu_addr;
 	dma_addr_t iova_addr;
 	size_t len;
 	uint32_t size;
+	uint32_t offset;
 };
 
 /**
@@ -240,6 +242,7 @@ struct ope_debug_buffer {
  * @cpu_addr:         CPU address
  * @iova_addr:        IOVA address
  * @iova_cdm_addr:    CDM IOVA address
+ * @offset:           Offset of buffer
  * @len:              Buffer length
  * @size:             Buffer Size
  */
@@ -248,6 +251,7 @@ struct ope_kmd_buffer {
 	uintptr_t cpu_addr;
 	dma_addr_t iova_addr;
 	dma_addr_t iova_cdm_addr;
+	uint32_t offset;
 	size_t len;
 	uint32_t size;
 };
@@ -514,6 +518,7 @@ struct cam_ope_hw_mgr {
 	struct cam_ope_ctx  ctx[OPE_CTX_MAX];
 	struct cam_hw_intf  **devices[OPE_DEV_MAX];
 	struct ope_query_cap_cmd ope_caps;
+	uint64_t last_callback_time;
 
 	struct cam_req_mgr_core_workq *cmd_work;
 	struct cam_req_mgr_core_workq *msg_work;

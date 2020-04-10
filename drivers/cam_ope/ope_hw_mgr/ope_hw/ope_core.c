@@ -285,6 +285,16 @@ int cam_ope_deinit_hw(void *device_priv,
 	return rc;
 }
 
+static int cam_ope_dev_process_dump_debug_reg(struct ope_hw *ope_hw)
+{
+	int rc = 0;
+
+	rc = cam_ope_top_process(ope_hw, -1,
+		OPE_HW_DUMP_DEBUG, NULL);
+
+	return rc;
+}
+
 static int cam_ope_dev_process_reset(struct ope_hw *ope_hw, void *cmd_args)
 {
 	int rc = 0;
@@ -370,16 +380,17 @@ static int cam_ope_dev_prepare_cdm_request(
 	kmd_buf = (uint32_t *)ope_request->ope_kmd_buf.cpu_addr +
 		kmd_buf_offset;
 
-	cdm_cmd->type = CAM_CDM_BL_CMD_TYPE_HW_IOVA;
+	cdm_cmd->type = CAM_CDM_BL_CMD_TYPE_MEM_HANDLE;
 	cdm_cmd->flag = true;
 	cdm_cmd->userdata = ctx_data;
 	cdm_cmd->cookie = req_idx;
 	cdm_cmd->gen_irq_arb = true;
 
 	i = cdm_cmd->cmd_arrary_count;
-	cdm_cmd->cmd[i].bl_addr.hw_iova =
-		(uint32_t *)ope_request->ope_kmd_buf.iova_cdm_addr;
-	cdm_cmd->cmd[i].offset = kmd_buf_offset;
+	cdm_cmd->cmd[i].bl_addr.mem_handle =
+		ope_request->ope_kmd_buf.mem_handle;
+	cdm_cmd->cmd[i].offset = kmd_buf_offset +
+		ope_request->ope_kmd_buf.offset;
 	cdm_cmd->cmd[i].len = len;
 	cdm_cmd->cmd[i].arbitrate = arbitrate;
 
@@ -394,6 +405,7 @@ static int cam_ope_dev_prepare_cdm_request(
 
 	return 0;
 }
+
 
 static int dump_dmi_cmd(uint32_t print_idx,
 	uint32_t *print_ptr, struct cdm_dmi_cmd *dmi_cmd,
@@ -1529,6 +1541,15 @@ static int cam_ope_process_probe(struct ope_hw *ope_hw,
 	return -EINVAL;
 }
 
+static int cam_ope_process_dump_debug_reg(struct ope_hw *ope_hw,
+	bool hfi_en)
+{
+	if (!hfi_en)
+		return cam_ope_dev_process_dump_debug_reg(ope_hw);
+
+	return -EINVAL;
+}
+
 static int cam_ope_process_reset(struct ope_hw *ope_hw,
 	void *cmd_args, bool hfi_en)
 {
@@ -1669,6 +1690,9 @@ int cam_ope_process_cmd(void *device_priv, uint32_t cmd_type,
 		core_info->irq_cb.data = irq_cb->data;
 		spin_unlock_irqrestore(&ope_dev->hw_lock, flags);
 		}
+		break;
+	case OPE_HW_DUMP_DEBUG:
+		rc = cam_ope_process_dump_debug_reg(ope_hw, hfi_en);
 		break;
 	default:
 		break;
