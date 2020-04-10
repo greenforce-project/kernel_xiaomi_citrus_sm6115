@@ -1104,6 +1104,42 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 	}
 }
 
+static void sde_kms_check_for_ext_vote(struct sde_kms *sde_kms,
+		struct sde_power_handle *phandle)
+{
+	struct sde_crtc *sde_crtc;
+	struct drm_crtc *crtc;
+	struct drm_device *dev;
+	bool crtc_enabled = false;
+
+	if (!sde_kms->catalog->allow_gdsc_toggle)
+		return;
+
+	dev = sde_kms->dev;
+
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		sde_crtc = to_sde_crtc(crtc);
+		if (sde_crtc->enabled)
+			crtc_enabled = true;
+	}
+
+	mutex_lock(&phandle->ext_client_lock);
+
+	/* In some targets, a gdsc toggle is needed after crtc is disabled.
+	 * There are some scenarios where presence of an external vote like
+	 * secure vote which can prevent this from happening. In those
+	 * cases, allow the target to go through a gdsc toggle after
+	 * crtc is disabled.
+	 */
+	if (!crtc_enabled && phandle->is_ext_vote_en) {
+		pm_runtime_put_sync(sde_kms->dev->dev);
+		SDE_EVT32(phandle->is_ext_vote_en);
+		pm_runtime_get_sync(sde_kms->dev->dev);
+	}
+
+	mutex_unlock(&phandle->ext_client_lock);
+}
+
 static void sde_kms_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
@@ -1164,6 +1200,8 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		_sde_kms_release_splash_resource(sde_kms, crtc);
+
+	sde_kms_check_for_ext_vote(sde_kms, &priv->phandle);
 
 	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 	SDE_ATRACE_END("sde_kms_complete_commit");
@@ -1582,6 +1620,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 
 		/* update display cap to MST_MODE for DP MST encoders */
 		info.capabilities |= MSM_DISPLAY_CAP_MST_MODE;
+		sde_kms->dp_stream_count = dp_display_get_num_of_streams();
 		for (idx = 0; idx < sde_kms->dp_stream_count; idx++) {
 			info.h_tile_instance[0] = idx;
 			encoder = sde_encoder_init(dev, &info);
@@ -3111,6 +3150,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			goto early_map_fail;
 		}
 	}
+
+	sde_kms->base.aspace = sde_kms->aspace[0];
 
 	return 0;
 

@@ -56,6 +56,9 @@
 /* default ubwc version */
 #define DEFAULT_SDE_UBWC_VERSION SDE_HW_UBWC_VER_10
 
+/* No UBWC */
+#define DEFAULT_SDE_UBWC_NONE 0x0
+
 /* default ubwc static config register value */
 #define DEFAULT_SDE_UBWC_STATIC 0x0
 
@@ -1100,6 +1103,9 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		set_bit(SDE_PERF_SSPP_QOS_8LVL, &sspp->perf_features);
 	(*vig_count)++;
 
+	sblk->format_list = sde_cfg->vig_formats;
+	sblk->virt_format_list = sde_cfg->virt_vig_formats;
+
 	if (!prop_value)
 		return;
 
@@ -1208,8 +1214,6 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	if (PROP_VALUE_ACCESS(prop_value, VIG_INVERSE_PMA, 0))
 		set_bit(SDE_SSPP_INVERSE_PMA, &sspp->features);
 
-	sblk->format_list = sde_cfg->vig_formats;
-	sblk->virt_format_list = sde_cfg->virt_vig_formats;
 	if (sde_cfg->true_inline_rot_rev > 0) {
 		set_bit(SDE_SSPP_TRUE_INLINE_ROT, &sspp->features);
 		sblk->in_rot_format_list = sde_cfg->inline_rot_formats;
@@ -1226,9 +1230,9 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 			MAX_DOWNSCALE_RATIO_INROT_PD_RT_DENOMINATOR;
 		sblk->in_rot_maxdwnscale_nrt =
 			MAX_DOWNSCALE_RATIO_INROT_NRT_DEFAULT;
-		sblk->in_rot_minpredwnscale_num =
+		sblk->in_rot_maxdwnscale_rt_nopd_num =
 			MAX_DOWNSCALE_RATIO_INROT_NOPD_RT_NUMERATOR;
-		sblk->in_rot_minpredwnscale_denom =
+		sblk->in_rot_maxdwnscale_rt_nopd_denom =
 			MAX_DOWNSCALE_RATIO_INROT_NOPD_RT_DENOMINATOR;
 	} else if (IS_SDE_INLINE_ROT_REV_100(sde_cfg->true_inline_rot_rev)) {
 		sblk->in_rot_maxdwnscale_rt_num =
@@ -3194,7 +3198,7 @@ static int _sde_parse_prop_check(struct sde_mdss_cfg *cfg,
 	cfg->ubwc_version = SDE_HW_UBWC_VER(PROP_VALUE_ACCESS(prop_value,
 			 UBWC_VERSION, 0));
 	if (!prop_exists[UBWC_VERSION])
-		cfg->ubwc_version = DEFAULT_SDE_UBWC_VERSION;
+		cfg->ubwc_version = DEFAULT_SDE_UBWC_NONE;
 
 	cfg->mdp[0].highest_bank_bit = PROP_VALUE_ACCESS(prop_value,
 			BANK_BIT, 0);
@@ -4335,6 +4339,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_block_xin_mask = 0xC01;
 		sde_cfg->has_hdr = false;
 		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->allow_gdsc_toggle = true;
 		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
 		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
 	} else if (IS_LAGOON_TARGET(hw_rev)) {
@@ -4354,6 +4359,21 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_hdr = true;
 		sde_cfg->has_vig_p010 = true;
 		sde_cfg->true_inline_rot_rev = SDE_INLINE_ROT_VERSION_2_0_0;
+	} else if (IS_SCUBA_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = false;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x1;
+		sde_cfg->has_hdr = false;
+		sde_cfg->has_sui_blendstage = true;
+		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
+		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
