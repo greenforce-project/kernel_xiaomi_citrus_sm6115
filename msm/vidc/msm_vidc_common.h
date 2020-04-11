@@ -167,6 +167,18 @@ static inline bool is_output_buffer(struct msm_vidc_buffer *mbuf)
 	return mbuf->vvb.vb2_buf.type == OUTPUT_MPLANE;
 }
 
+static inline bool is_internal_buffer(enum hal_buffer type)
+{
+	u32 buf_type =
+		HAL_BUFFER_INTERNAL_SCRATCH |
+		HAL_BUFFER_INTERNAL_SCRATCH_1 |
+		HAL_BUFFER_INTERNAL_SCRATCH_2 |
+		HAL_BUFFER_INTERNAL_PERSIST |
+		HAL_BUFFER_INTERNAL_PERSIST_1 |
+		HAL_BUFFER_INTERNAL_RECON;
+	return !!(buf_type & type);
+}
+
 static inline int msm_comm_g_ctrl(struct msm_vidc_inst *inst,
 		struct v4l2_control *ctrl)
 {
@@ -283,6 +295,7 @@ int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst);
 void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
+void msm_comm_print_insts_info(struct msm_vidc_core *core);
 int msm_comm_v4l2_to_hfi(int id, int value, u32 sid);
 int msm_comm_hfi_to_v4l2(int id, int value, u32 sid);
 int msm_comm_get_v4l2_profile(int fourcc, int profile, u32 sid);
@@ -354,4 +367,6 @@ void msm_comm_clear_window_data(struct msm_vidc_inst *inst);
 void msm_comm_release_window_data(struct msm_vidc_inst *inst);
 int msm_comm_set_cvp_skip_ratio(struct msm_vidc_inst *inst,
 	uint32_t capture_rate, uint32_t cvp_rate);
+int msm_comm_check_memory_supported(struct msm_vidc_inst *vidc_inst);
+int msm_comm_update_dpb_bufreqs(struct msm_vidc_inst *inst);
 #endif
