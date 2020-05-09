@@ -1974,9 +1974,19 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 {
 	struct internal_buf *binfo;
 	u32 buffers_owned_by_driver = 0;
-	struct msm_vidc_format *fmt;
+	struct hal_buffer_requirements *dpb = NULL;
+	u32 i;
 
-	fmt = &inst->fmts[OUTPUT_PORT];
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		if (inst->buff_req.buffer[i].buffer_type == HAL_BUFFER_OUTPUT) {
+			dpb = &inst->buff_req.buffer[i];
+			break;
+		}
+	}
+	if (!dpb) {
+		s_vpr_e(inst->sid, "Couldn't retrieve dpb buf req\n");
+		return;
+	}
 
 	mutex_lock(&inst->outputbufs.lock);
 	if (list_empty(&inst->outputbufs.list)) {
@@ -1995,11 +2005,10 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 	}
 	mutex_unlock(&inst->outputbufs.lock);
 
-	/* Only minimum number of DPBs are allocated */
-	if (buffers_owned_by_driver != fmt->count_min) {
+	if (buffers_owned_by_driver != dpb->buffer_count_actual) {
 		s_vpr_e(inst->sid, "OUTPUT Buffer count mismatch %d of %d\n",
 			buffers_owned_by_driver,
-			fmt->count_min);
+			dpb->buffer_count_actual);
 		msm_vidc_handle_hw_error(inst->core);
 	}
 }
@@ -3420,7 +3429,7 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 		inp_f = &temp->fmts[INPUT_PORT].v4l2_fmt;
 		if (temp->state >= MSM_VIDC_OPEN_DONE &&
 				temp->state < MSM_VIDC_STOP_DONE) {
-			char properties[4] = "";
+			char properties[5] = "";
 
 			if (is_thumbnail_session(temp))
 				strlcat(properties, "N", sizeof(properties));
@@ -3430,6 +3439,9 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 
 			if (is_realtime_session(temp))
 				strlcat(properties, "R", sizeof(properties));
+
+			if (is_grid_session(temp))
+				strlcat(properties, "I", sizeof(properties));
 
 			if (temp->clk_data.operating_rate)
 				op_rate = temp->clk_data.operating_rate >> 16;
