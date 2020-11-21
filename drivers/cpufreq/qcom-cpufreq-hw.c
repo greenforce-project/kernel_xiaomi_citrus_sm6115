@@ -524,21 +524,36 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 			cur_freq = CPUFREQ_ENTRY_INVALID;
 		} else {
 			if (core_count != c->max_cores) {
-				cur_freq = CPUFREQ_ENTRY_INVALID;
-				c->table[i].flags = CPUFREQ_BOOST_FREQ;
+				if (core_count == (c->max_cores - 1)) {
+					c->skip_data.skip = true;
+					c->skip_data.high_temp_index = i;
+					c->skip_data.freq = cur_freq;
+					c->skip_data.cc = core_count;
+					c->skip_data.final_index = i + 1;
+					c->skip_data.low_temp_index = i + 1;
+					c->skip_data.prev_freq =
+							c->table[i-1].frequency;
+					c->skip_data.prev_index = i - 1;
+					c->skip_data.prev_cc = prev_cc;
+				} else {
+					cur_freq = CPUFREQ_ENTRY_INVALID;
+					c->table[i].flags = CPUFREQ_BOOST_FREQ;
+				}
 			}
 
 			/*
-			 * Two of the same frequencies with the same core counts
-			 * means end of table.
-			*/
+			 * Two of the same frequencies with the same core counts means
+			 * end of table.
+			 */
 			if (i > 0 && c->table[i - 1].frequency ==
-			c->table[i].frequency && prev_cc == core_count) {
-				struct cpufreq_frequency_table *prev =
-					&c->table[i - 1];
+					c->table[i].frequency) {
+				if (prev_cc == core_count) {
+					struct cpufreq_frequency_table *prev =
+								&c->table[i - 1];
 
-				if (prev_freq == CPUFREQ_ENTRY_INVALID)
-					prev->flags = CPUFREQ_BOOST_FREQ;
+					if (prev_freq == CPUFREQ_ENTRY_INVALID)
+						prev->flags = CPUFREQ_BOOST_FREQ;
+				}
 				break;
 			}
 		}
