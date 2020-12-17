@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Limited
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Copyright (c) 2014, 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public

@@ -3,6 +3,7 @@
  * fscrypt_private.h
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Originally written by Michael Halcrow, Ildar Muslukhov, and Uday Savagaonkar.
  * Heavily modified since then.
@@ -249,6 +250,7 @@ struct fscrypt_info {
 
 	/* Hashed inode number.  Only set for IV_INO_LBLK_32 */
 	u32 ci_hashed_ino;
+	size_t key_size;
 };
 
 typedef enum {

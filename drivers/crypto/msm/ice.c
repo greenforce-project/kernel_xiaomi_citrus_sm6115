@@ -3,6 +3,7 @@
  * QTI Inline Crypto Engine (ICE) driver
  *
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -452,6 +453,9 @@ static void qcom_ice_parse_ice_instance_type(struct platform_device *pdev,
 		goto out;
 	}
 	strlcpy(ice_dev->ice_instance_type, type, QCOM_ICE_TYPE_NAME_LEN);
+
+	ice_dev->hwkm_supported = of_property_read_bool(np,
+							"qcom,hwkm-supported");
 out:
 	return;
 }
