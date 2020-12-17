@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <uapi/linux/sched/types.h>
