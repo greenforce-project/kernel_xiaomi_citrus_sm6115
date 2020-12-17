@@ -3,6 +3,7 @@
  * f_ccid.c -- CCID function Driver
  *
  * Copyright (c) 2011, 2013, 2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
