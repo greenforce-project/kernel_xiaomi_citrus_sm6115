@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2002,2007-2018,2020 The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #ifndef __ADRENO_PM4TYPES_H
 #define __ADRENO_PM4TYPES_H
