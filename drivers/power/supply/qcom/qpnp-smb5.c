@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/debugfs.h>
@@ -227,7 +228,7 @@ struct smb5 {
 	struct smb_dt_props	dt;
 };
 
-static int __debug_mask;
+static int __debug_mask = 0xff;
 
 static ssize_t pd_disabled_show(struct device *dev, struct device_attribute
 				*attr, char *buf)
@@ -446,6 +447,9 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 
 	of_property_read_u32(node, "qcom,sec-charger-config",
 					&chip->dt.sec_charger_config);
+
+	printk("sec-charger-config=%d\n", chip->dt.sec_charger_config);
+
 	chg->sec_cp_present =
 		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP ||
 		chip->dt.sec_charger_config == POWER_SUPPLY_CHARGER_SEC_CP_PL;
@@ -889,6 +893,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SKIN_HEALTH,
 	POWER_SUPPLY_PROP_APSD_RERUN,
 	POWER_SUPPLY_PROP_APSD_TIMEOUT,
+	POWER_SUPPLY_PROP_OTG_ONLINE,
 	POWER_SUPPLY_PROP_CHARGER_STATUS,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 };
@@ -1041,6 +1046,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_APSD_TIMEOUT:
 		val->intval = chg->apsd_ext_timeout;
 		break;
+	case POWER_SUPPLY_PROP_OTG_ONLINE:
+		val->intval = chg->otg_present;
+		break;
 	case POWER_SUPPLY_PROP_CHARGER_STATUS:
 		val->intval = 0;
 		if (chg->sdam_base) {
@@ -1152,6 +1160,9 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		del_timer_sync(&chg->apsd_timer);
 		chg->apsd_ext_timeout = false;
 		smblib_rerun_apsd(chg);
+		break;
+	case POWER_SUPPLY_PROP_OTG_ONLINE:
+		rc = chg->otg_present;
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -1701,6 +1712,7 @@ static int smb5_init_dc_psy(struct smb5 *chip)
  * BATT PSY REGISTRATION *
  *************************/
 static enum power_supply_property smb5_batt_props[] = {
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -1828,7 +1840,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 						POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		rc = smblib_get_prop_batt_charge_done(chg, val);
@@ -2018,6 +2030,7 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		return 1;
 	default:
 		break;
@@ -2277,6 +2290,11 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		dev_err(chg->dev,
 			"Couldn't configure CC threshold voltage rc=%d\n", rc);
 
+	rc = smblib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG, 0);
+	 if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
 	return rc;
 }
 
@@ -2462,9 +2480,8 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 	}
 
 	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
-		THERMREG_SW_ICL_ADJUST_BIT | THERMREG_DIE_ADC_SRC_EN_BIT |
-		THERMREG_DIE_CMP_SRC_EN_BIT | THERMREG_SKIN_ADC_SRC_EN_BIT |
-		SKIN_ADC_CFG_BIT | THERMREG_CONNECTOR_ADC_SRC_EN_BIT, src_cfg);
+			THERMREG_DIE_ADC_SRC_EN_BIT
+			| THERMREG_DIE_CMP_SRC_EN_BIT, src_cfg);
 	if (rc < 0) {
 		dev_err(chg->dev,
 				"Couldn't configure THERM_SRC reg rc=%d\n", rc);
@@ -2962,6 +2979,16 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 			return rc;
 		}
+	}
+
+	rc = smblib_write(chg, 0x1670, 0x5);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set 0x1670 rc=%d\n", rc);
+	}
+
+	rc = smblib_write(chg, 0x1380, 0xc4);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set 0x1380 rc=%d\n", rc);
 	}
 
 	return rc;

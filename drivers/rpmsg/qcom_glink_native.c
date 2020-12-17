@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/idr.h>
