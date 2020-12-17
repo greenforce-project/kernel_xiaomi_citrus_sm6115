@@ -4,6 +4,7 @@
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
