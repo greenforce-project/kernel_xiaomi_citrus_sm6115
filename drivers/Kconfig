@@ -227,6 +227,10 @@ source "drivers/slimbus/Kconfig"
 
 source "drivers/esoc/Kconfig"
 
+source "drivers/lastkmsg/Kconfig"
+
+source "drivers/switch/Kconfig"
+
 source "drivers/sensors/Kconfig"
 
 source "drivers/gpu/msm/Kconfig"
