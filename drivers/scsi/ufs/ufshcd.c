@@ -4,6 +4,7 @@
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -4558,6 +4559,8 @@ int ufshcd_read_desc_param(struct ufs_hba *hba,
 	 */
 	ret = ufshcd_map_desc_id_to_length(hba, desc_id, &buff_len);
 
+	/*dev_err(hba->dev, "%s:descriptor length=0x%02x",
+			__func__, buff_len);*/
 	/* Sanity checks */
 	if (ret || !buff_len) {
 		dev_err(hba->dev, "%s: Failed to get full descriptor length\n",
