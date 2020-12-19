@@ -114,7 +114,7 @@ modpost_link()
 		info LTO vmlinux.o
 	fi
 
-	${LD} ${KBUILD_LDFLAGS} -r -o ${1} $(lto_lds) ${objects}
+	${LDFINAL} ${KBUILD_LDFLAGS} -r -o ${1} $(lto_lds) ${objects}
 }
 
 # If CONFIG_LTO_CLANG is selected, we postpone running recordmcount until
@@ -154,7 +154,7 @@ vmlinux_link()
 				${1}"
 		fi
 
-		${LD} ${KBUILD_LDFLAGS} ${LDFLAGS_vmlinux} -o ${2}	\
+		${LDFINAL} ${KBUILD_LDFLAGS} ${LDFLAGS_vmlinux} -o ${2}	\
 			-T ${lds} ${objects}
 	else
 		objects="-Wl,--whole-archive			\
