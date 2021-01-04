@@ -141,3 +141,7 @@ kernel/configs/android-*.cfg
 
 # Tech package directories
 #techpack/
+
+# Build
+build.sh
+out/
