@@ -62,7 +62,7 @@ static char *aw87519_drcv_name = "aw87519_drcv.bin";
 static char *aw87519_hvload_name = "aw87519_hvload.bin";
 
 unsigned int kspk_load_cont;
-unsigned int drcv_load_cont;
+unsigned int krcv_load_cont;
 unsigned int hvload_load_cont;
 
 /*****************************************************************************
@@ -314,12 +314,12 @@ static void aw87519_drcv_cfg_loaded(const struct firmware *cont, void *context)
 	int ram_timer_val = 2000;
 
 	pr_info("%s enter\n", __func__);
-	drcv_load_cont++;
+	krcv_load_cont++;
 
 	if (!cont) {
 		pr_err("%s: failed to read %s\n", __func__, aw87519_drcv_name);
 		release_firmware(cont);
-		if (drcv_load_cont <= 2) {
+		if (krcv_load_cont <= 2) {
 			schedule_delayed_work(&aw87519->ram_work,
 					      msecs_to_jiffies(ram_timer_val));
 			pr_info("%s:restart hrtimer to load firmware\n",
@@ -743,7 +743,7 @@ static int aw87519_i2c_probe(struct i2c_client *client,
 
 	/* aw87519 cfg update */
 	kspk_load_cont = 0;
-	drcv_load_cont = 0;
+	krcv_load_cont = 0;
 	hvload_load_cont = 0;
 	aw87519->kspk_cfg_update_flag = 0;
 	aw87519->drcv_cfg_update_flag = 0;
