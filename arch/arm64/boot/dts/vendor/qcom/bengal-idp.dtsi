@@ -4,7 +4,7 @@
 #include "bengal-audio-overlay.dtsi"
 #include "bengal-thermal-overlay.dtsi"
 #include "bengal-sde-display.dtsi"
-#include "camera/bengal-camera-sensor-idp.dtsi"
+#include "camera/citrus-camera-sensor-idp.dtsi"
 
 &tlmm {
 	fpc_reset_int: fpc_reset_int {

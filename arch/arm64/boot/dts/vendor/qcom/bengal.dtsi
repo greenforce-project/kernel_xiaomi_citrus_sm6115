@@ -3025,5 +3025,5 @@
 };
 
 #include "bengal-thermal.dtsi"
-#include "camera/bengal-camera.dtsi"
+#include "camera/citrus-camera.dtsi"
 #include "msm-rdbg.dtsi"
