@@ -3554,6 +3554,7 @@ typedef struct sSirScanOffloadEvent {
  * @dfsSet: is dfs supported or not
  * @half_rate: is the channel operating at 10MHz
  * @quarter_rate: is the channel operating at 5MHz
+ * @nan_disabled: is NAN disabled on @chanId
  */
 typedef struct sSirUpdateChanParam {
 	uint8_t chanId;
@@ -3561,6 +3562,7 @@ typedef struct sSirUpdateChanParam {
 	bool dfsSet;
 	bool half_rate;
 	bool quarter_rate;
+	bool nan_disabled;
 } tSirUpdateChanParam, *tpSirUpdateChanParam;
 
 typedef struct sSirUpdateChan {
@@ -4908,6 +4910,10 @@ typedef struct {
 	uint32_t onTime;
 	/* msecs the CCA register is busy (32 bits number accruing over time) */
 	uint32_t ccaBusyTime;
+	/* msecs the radio is transmitting on this channel */
+	uint32_t tx_time;
+	/* msecs the radio is in active receive on this channel */
+	uint32_t rx_time;
 } tSirWifiChannelStats, *tpSirWifiChannelStats;
 
 #define MAX_TPC_LEVELS 64

@@ -1271,6 +1271,8 @@ static void hdd_update_tgt_services(struct hdd_context *hdd_ctx,
 	hdd_update_tdls_config(hdd_ctx);
 	sme_update_tgt_services(hdd_ctx->mac_handle, cfg);
 	hdd_ctx->roam_ch_from_fw_supported = cfg->is_roam_scan_ch_to_host;
+	hdd_ctx->ll_stats_per_chan_rx_tx_time =
+					cfg->ll_stats_per_chan_rx_tx_time;
 }
 
 /**
@@ -3536,23 +3538,25 @@ static int __hdd_open(struct net_device *dev)
 		   TRACE_CODE_HDD_OPEN_REQUEST,
 		   adapter->session_id, adapter->device_mode);
 
+	mutex_lock(&hdd_init_deinit_lock);
 	/* Nothing to be done if device is unloading */
 	if (cds_is_driver_unloading()) {
+		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("Driver is unloading can not open the hdd");
 		return -EBUSY;
 	}
 
 	if (cds_is_driver_recovering()) {
+		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("WLAN is currently recovering; Please try again.");
 		return -EBUSY;
 	}
 
 	if (qdf_atomic_read(&hdd_ctx->con_mode_flag)) {
+		mutex_unlock(&hdd_init_deinit_lock);
 		hdd_err("con_mode_handler is in progress; Please try again.");
 		return -EBUSY;
 	}
-
-	mutex_lock(&hdd_init_deinit_lock);
 	hdd_start_driver_ops_timer(eHDD_DRV_OP_IFF_UP);
 
 	/*
@@ -13276,8 +13280,6 @@ int hdd_register_cb(struct hdd_context *hdd_ctx)
 	if (!QDF_IS_STATUS_SUCCESS(status))
 		hdd_err("Register tx queue callback failed");
 
-	sme_set_oem_data_event_handler_cb(mac_handle, hdd_oem_event_handler_cb);
-
 	sme_set_roam_scan_ch_event_cb(mac_handle, hdd_get_roam_scan_ch_cb);
 
 	status = sme_set_beacon_latency_event_cb(mac_handle,
@@ -13312,8 +13314,6 @@ void hdd_deregister_cb(struct hdd_context *hdd_ctx)
 	}
 
 	mac_handle = hdd_ctx->mac_handle;
-
-	sme_reset_oem_data_event_handler_cb(mac_handle);
 
 	sme_deregister_tx_queue_cb(mac_handle);
 
@@ -14487,8 +14487,10 @@ static void hdd_driver_unload(void)
 	if (!hdd_wait_for_recovery_completion())
 		return;
 
+	mutex_lock(&hdd_init_deinit_lock);
 	cds_set_driver_loaded(false);
 	cds_set_unload_in_progress(true);
+	mutex_unlock(&hdd_init_deinit_lock);
 
 	if (hdd_ctx)
 		hdd_psoc_idle_timer_stop(hdd_ctx);
