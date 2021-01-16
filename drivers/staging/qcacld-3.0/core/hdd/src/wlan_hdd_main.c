@@ -140,6 +140,7 @@
 #include "wlan_hdd_twt.h"
 #include "wlan_mlme_ucfg_api.h"
 #include <wlan_hdd_debugfs_coex.h>
+#include "qdf_func_tracker.h"
 
 #ifdef CNSS_GENL
 #include <net/cnss_nl.h>
@@ -6100,6 +6101,36 @@ hdd_peer_cleanup(struct hdd_context *hdd_ctx, struct hdd_adapter *adapter)
 		hdd_debug("peer_cleanup_done wait fail");
 }
 
+#ifdef FUNC_CALL_MAP
+
+/**
+ * hdd_dump_func_call_map() - Dump the function call map
+ *
+ * Return: None
+ */
+
+static void hdd_dump_func_call_map(void)
+{
+	char *cc_buf;
+
+	cc_buf = qdf_mem_malloc(QDF_FUNCTION_CALL_MAP_BUF_LEN);
+	/*
+	 * These logs are required as these indicates the start and end of the
+	 * dump for the auto script to parse
+	 */
+	hdd_info("Function call map dump start");
+	qdf_get_func_call_map(cc_buf);
+	qdf_trace_hex_dump(QDF_MODULE_ID_HDD,
+		QDF_TRACE_LEVEL_DEBUG, cc_buf, QDF_FUNCTION_CALL_MAP_BUF_LEN);
+	hdd_info("Function call map dump end");
+	qdf_mem_free(cc_buf);
+}
+#else
+static inline void hdd_dump_func_call_map(void)
+{
+}
+#endif
+
 QDF_STATUS hdd_stop_adapter(struct hdd_context *hdd_ctx,
 			    struct hdd_adapter *adapter)
 {
@@ -6460,6 +6491,8 @@ QDF_STATUS hdd_stop_adapter_ext(struct hdd_context *hdd_ctx,
 		adapter->scan_info.default_scan_ies = NULL;
 	}
 
+	/* This function should be invoked at the end of this api*/
+	hdd_dump_func_call_map();
 	hdd_exit();
 	return QDF_STATUS_SUCCESS;
 }
@@ -7367,7 +7400,8 @@ QDF_STATUS hdd_start_all_adapters(struct hdd_context *hdd_ctx)
 	hdd_enter();
 
 	hdd_for_each_adapter(hdd_ctx, adapter) {
-		if (!hdd_is_interface_up(adapter))
+		if (!hdd_is_interface_up(adapter) &&
+		    adapter->device_mode != QDF_NDI_MODE)
 			continue;
 
 		hdd_debug("[SSR] start adapter with device mode %s(%d)",
@@ -7423,6 +7457,14 @@ QDF_STATUS hdd_start_all_adapters(struct hdd_context *hdd_ctx)
 						   GFP_KERNEL, false, 0);
 			}
 
+			if (cds_is_driver_recovering() &&
+			    (adapter->device_mode == QDF_NAN_DISC_MODE ||
+			     (adapter->device_mode == QDF_STA_MODE &&
+			      wlan_hdd_nan_is_supported(hdd_ctx) &&
+			      !(hdd_ctx->nan_seperate_vdev_supported &&
+			      wlan_hdd_nan_separate_iface_supported(hdd_ctx)))))
+				hdd_nan_disable_ind_to_userspace(hdd_ctx);
+
 			hdd_register_tx_flow_control(adapter,
 					hdd_tx_resume_timer_expired_handler,
 					hdd_tx_resume_cb,
@@ -7467,6 +7509,9 @@ QDF_STATUS hdd_start_all_adapters(struct hdd_context *hdd_ctx)
 				wlan_hdd_set_mon_chan(
 						adapter, adapter->mon_chan,
 						adapter->mon_bandwidth);
+			break;
+		case QDF_NDI_MODE:
+			hdd_ndi_start(adapter->dev->name, 0);
 			break;
 		default:
 			break;
@@ -8348,6 +8393,9 @@ static void hdd_wlan_exit(struct hdd_context *hdd_ctx)
 	driver_status = hdd_objmgr_release_and_destroy_psoc(hdd_ctx);
 	if (driver_status)
 		hdd_err("Psoc delete failed");
+
+	/* This function should be invoked at the end of this api*/
+	hdd_dump_func_call_map();
 }
 
 void __hdd_wlan_exit(void)
