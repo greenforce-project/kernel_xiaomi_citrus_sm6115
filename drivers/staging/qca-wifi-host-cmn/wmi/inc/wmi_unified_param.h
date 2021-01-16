@@ -609,6 +609,7 @@ struct vdev_delete_params {
  * @allow_ht: HT allowed in chan
  * @allow_vht: VHT allowed on chan
  * @set_agile: is agile mode
+ * @nan_disabled: is NAN disabled on @mhz
  * @phy_mode: phymode (vht80 or ht40 or ...)
  * @cfreq1: centre frequency on primary
  * @cfreq2: centre frequency on secondary
@@ -630,7 +631,8 @@ struct channel_param {
 		is_chan_passive:1,
 		allow_ht:1,
 		allow_vht:1,
-		set_agile:1;
+		set_agile:1,
+		nan_disabled:1;
 	uint32_t phy_mode;
 	uint32_t cfreq1;
 	uint32_t cfreq2;
@@ -2080,6 +2082,10 @@ struct roam_offload_scan_params {
  * @bg_scan_bad_rssi_thresh: Bad RSSI threshold to perform bg scan
  * @roam_bad_rssi_thresh_offset_2g: Offset from Bad RSSI threshold for 2G to 5G Roam
  * @bg_scan_client_bitmap: Bitmap used to identify the client scans to snoop
+ * @roam_data_rssi_threshold_triggers: triggers of bad data RSSI threshold to
+ *                                     roam
+ * @roam_data_rssi_threshold: Bad data RSSI threshold to roam
+ * @rx_data_inactivity_time: Rx duration to check data RSSI
  * @flags: Flags for Background Roaming
  *	Bit 0 : BG roaming enabled when we connect to 2G AP only and roaming to 5G AP only.
  *	Bit 1-31: Reserved
@@ -2109,6 +2115,9 @@ struct roam_offload_scan_rssi_params {
 	int8_t bg_scan_bad_rssi_thresh;
 	uint8_t roam_bad_rssi_thresh_offset_2g;
 	uint32_t bg_scan_client_bitmap;
+	uint32_t roam_data_rssi_threshold_triggers;
+	int32_t roam_data_rssi_threshold;
+	uint32_t rx_data_inactivity_time;
 	uint32_t flags;
 };
 
@@ -6242,6 +6251,7 @@ typedef enum {
 	wmi_roam_scan_chan_list_to_host_support,
 	wmi_service_host_scan_stop_vdev_all,
 	wmi_service_suiteb_roam_support,
+	wmi_service_ll_stats_per_chan_rx_tx_time,
 	wmi_services_max,
 } wmi_conv_service_ids;
 #define WMI_SERVICE_UNAVAILABLE 0xFFFF

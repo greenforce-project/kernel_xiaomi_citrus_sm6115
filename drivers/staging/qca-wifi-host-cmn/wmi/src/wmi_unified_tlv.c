@@ -471,6 +471,9 @@ static inline void copy_channel_info(
 	if (req->channel.dfs_set_cfreq2)
 		WMI_SET_CHANNEL_FLAG(chan, WMI_CHAN_FLAG_DFS_CFREQ2);
 
+	if (req->channel.nan_disabled)
+		WMI_SET_CHANNEL_FLAG(chan, WMI_CHAN_FLAG_NAN_DISABLED);
+
 	/* According to firmware both reg power and max tx power
 	 * on set channel power is used and set it to max reg
 	 * power from regulatory.
@@ -3229,6 +3232,10 @@ static QDF_STATUS send_scan_chan_list_cmd_tlv(wmi_unified_t wmi_handle,
 		if (tchan_info->quarter_rate)
 			WMI_SET_CHANNEL_FLAG(chan_info,
 					WMI_CHAN_FLAG_QUARTER_RATE);
+
+		if (tchan_info->nan_disabled)
+			WMI_SET_CHANNEL_FLAG(chan_info,
+					     WMI_CHAN_FLAG_NAN_DISABLED);
 
 		/* also fill in power information */
 		WMI_SET_CHANNEL_MIN_POWER(chan_info,
@@ -7008,6 +7015,7 @@ static QDF_STATUS send_roam_scan_offload_rssi_thresh_cmd_tlv(wmi_unified_t wmi_h
 	wmi_roam_earlystop_rssi_thres_param *early_stop_thresholds = NULL;
 	wmi_roam_dense_thres_param *dense_thresholds = NULL;
 	wmi_roam_bg_scan_roaming_param *bg_scan_params = NULL;
+	wmi_roam_data_rssi_roaming_param *data_rssi_param = NULL;
 
 	len = sizeof(wmi_roam_scan_rssi_threshold_fixed_param);
 	len += WMI_TLV_HDR_SIZE; /* TLV for ext_thresholds*/
@@ -7018,6 +7026,8 @@ static QDF_STATUS send_roam_scan_offload_rssi_thresh_cmd_tlv(wmi_unified_t wmi_h
 	len += sizeof(wmi_roam_dense_thres_param);
 	len += WMI_TLV_HDR_SIZE; /* TLV for BG Scan*/
 	len += sizeof(wmi_roam_bg_scan_roaming_param);
+	len += WMI_TLV_HDR_SIZE; /* TLV for data RSSI*/
+	len += sizeof(wmi_roam_data_rssi_roaming_param);
 	buf = wmi_buf_alloc(wmi_handle, len);
 	if (!buf) {
 		WMI_LOGE("%s : wmi_buf_alloc failed", __func__);
@@ -7116,6 +7126,26 @@ static QDF_STATUS send_roam_scan_offload_rssi_thresh_cmd_tlv(wmi_unified_t wmi_h
 			WMITLV_TAG_STRUC_wmi_roam_bg_scan_roaming_param,
 			WMITLV_GET_STRUCT_TLVLEN
 			(wmi_roam_bg_scan_roaming_param));
+
+	buf_ptr += sizeof(wmi_roam_bg_scan_roaming_param);
+	WMITLV_SET_HDR(buf_ptr, WMITLV_TAG_ARRAY_STRUC,
+		       sizeof(wmi_roam_data_rssi_roaming_param));
+	buf_ptr += WMI_TLV_HDR_SIZE;
+	data_rssi_param = (wmi_roam_data_rssi_roaming_param *)buf_ptr;
+	data_rssi_param->flags =
+		roam_req->roam_data_rssi_threshold_triggers;
+	data_rssi_param->roam_data_rssi_thres =
+		roam_req->roam_data_rssi_threshold;
+	data_rssi_param->rx_inactivity_ms =
+		roam_req->rx_data_inactivity_time;
+	WMITLV_SET_HDR(&data_rssi_param->tlv_header,
+		       WMITLV_TAG_STRUC_wmi_roam_data_rssi_roaming_param,
+		       WMITLV_GET_STRUCT_TLVLEN
+		       (wmi_roam_data_rssi_roaming_param));
+	WMI_LOGD("Data rssi threshold: %d, triggers: 0x%x, rx time: %d",
+		 data_rssi_param->roam_data_rssi_thres,
+		 data_rssi_param->flags,
+		 data_rssi_param->rx_inactivity_ms);
 
 	wmi_mtrace(WMI_ROAM_SCAN_RSSI_THRESHOLD, NO_SESSION, 0);
 	status = wmi_unified_cmd_send(wmi_handle, buf,
@@ -16699,6 +16729,9 @@ static QDF_STATUS send_multiple_vdev_restart_req_cmd_tlv(
 	else  if (tchan_info->allow_ht)
 		WMI_SET_CHANNEL_FLAG(chan_info,
 				     WMI_CHAN_FLAG_ALLOW_HT);
+
+	if (tchan_info->nan_disabled)
+		WMI_SET_CHANNEL_FLAG(chan_info, WMI_CHAN_FLAG_NAN_DISABLED);
 	WMI_SET_CHANNEL_MODE(chan_info, tchan_info->phy_mode);
 	WMI_SET_CHANNEL_MIN_POWER(chan_info, tchan_info->minpower);
 	WMI_SET_CHANNEL_MAX_POWER(chan_info, tchan_info->maxpower);
@@ -18025,6 +18058,7 @@ QDF_STATUS save_ext_service_bitmap_tlv(wmi_unified_t wmi_handle, void *evt_buf,
 	WMI_SERVICE_AVAILABLE_EVENTID_param_tlvs *param_buf;
 	wmi_service_available_event_fixed_param *ev;
 	struct wmi_soc *soc = wmi_handle->soc;
+	uint32_t i = 0;
 
 	param_buf = (WMI_SERVICE_AVAILABLE_EVENTID_param_tlvs *) evt_buf;
 
@@ -18055,6 +18089,29 @@ QDF_STATUS save_ext_service_bitmap_tlv(wmi_unified_t wmi_handle, void *evt_buf,
 			soc->wmi_ext_service_bitmap,
 			(WMI_SERVICE_SEGMENT_BM_SIZE32 * sizeof(uint32_t)));
 
+	if (!param_buf->wmi_service_ext_bitmap) {
+		WMI_LOGD("wmi_service_ext_bitmap not available");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	if (!soc->wmi_ext2_service_bitmap) {
+		soc->wmi_ext2_service_bitmap =
+			qdf_mem_malloc(param_buf->num_wmi_service_ext_bitmap *
+				       sizeof(uint32_t));
+		if (!soc->wmi_ext2_service_bitmap)
+			return QDF_STATUS_E_NOMEM;
+	}
+
+	qdf_mem_copy(soc->wmi_ext2_service_bitmap,
+		     param_buf->wmi_service_ext_bitmap,
+		     (param_buf->num_wmi_service_ext_bitmap *
+		      sizeof(uint32_t)));
+
+	for (i = 0; i < param_buf->num_wmi_service_ext_bitmap; i++) {
+		WMI_LOGD("wmi_ext2_service_bitmap %u:0x%x",
+			 i, soc->wmi_ext2_service_bitmap[i]);
+	}
+
 	return QDF_STATUS_SUCCESS;
 }
 /**
@@ -18071,6 +18128,26 @@ static bool is_service_enabled_tlv(wmi_unified_t wmi_handle,
 
 	if (!soc->wmi_service_bitmap) {
 		WMI_LOGE("WMI service bit map is not saved yet\n");
+		return false;
+	}
+
+	if (!soc->wmi_ext_service_bitmap) {
+		WMI_LOGE("WMI service ext bit map is not saved yet");
+		return false;
+	}
+
+	/* if wmi_service_enabled was received with extended2 bitmap,
+	 * use WMI_SERVICE_EXT2_IS_ENABLED to check the services.
+	 */
+	if (soc->wmi_ext2_service_bitmap)
+		return WMI_SERVICE_EXT2_IS_ENABLED(soc->wmi_service_bitmap,
+				soc->wmi_ext_service_bitmap,
+				soc->wmi_ext2_service_bitmap,
+				service_id);
+
+	if (service_id >= WMI_MAX_EXT_SERVICE) {
+		WMI_LOGE("Service id %d but WMI ext2 service bitmap is NULL",
+			 service_id);
 		return false;
 	}
 
@@ -25319,6 +25396,8 @@ static void populate_tlv_service(uint32_t *wmi_service)
 		WMI_SERVICE_HOST_SCAN_STOP_VDEV_ALL_SUPPORT;
 	wmi_service[wmi_service_suiteb_roam_support] =
 			WMI_SERVICE_WPA3_SUITEB_ROAM_SUPPORT;
+	wmi_service[wmi_service_ll_stats_per_chan_rx_tx_time] =
+			WMI_SERVICE_LL_STATS_PER_CHAN_RX_TX_TIME_SUPPORT;
 }
 
 #ifndef CONFIG_MCL
