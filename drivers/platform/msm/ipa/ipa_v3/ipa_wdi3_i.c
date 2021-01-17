@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018 - 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 - 2020, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -832,23 +832,25 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	 * as IPA uC will fail to suspend the pipe otherwise.
 	 */
 	ep = &ipa3_ctx->ep[ipa_ep_idx_rx];
-	source_pipe_bitmask = 1 <<
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		source_pipe_bitmask = 1 <<
 			ipa3_get_ep_mapping(ep->client);
-	result = ipa3_enable_force_clear(ipa_ep_idx_rx,
-			false, source_pipe_bitmask);
-	if (result) {
-		/*
-		 * assuming here modem SSR, AP can remove
-		 * the delay in this case
-		 */
-		IPAERR("failed to force clear %d\n", result);
-		IPAERR("remove delay from SCND reg\n");
-		ep_ctrl_scnd.endp_delay = false;
-		ipahal_write_reg_n_fields(
-			IPA_ENDP_INIT_CTRL_SCND_n, ipa_ep_idx_rx,
-			&ep_ctrl_scnd);
-	} else {
-		disable_force_clear = true;
+		result = ipa3_enable_force_clear(ipa_ep_idx_rx,
+				false, source_pipe_bitmask);
+		if (result) {
+			/*
+			 * assuming here modem SSR, AP can remove
+			 * the delay in this case
+			 */
+			IPAERR("failed to force clear %d\n", result);
+			IPAERR("remove delay from SCND reg\n");
+			ep_ctrl_scnd.endp_delay = false;
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_CTRL_SCND_n, ipa_ep_idx_rx,
+					&ep_ctrl_scnd);
+		} else {
+			disable_force_clear = true;
+		}
 	}
 
 	/* stop gsi rx channel */
