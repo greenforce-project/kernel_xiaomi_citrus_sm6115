@@ -3,7 +3,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-y += \
 		bengal-idp-overlay.dtbo
 
-bengal-idp-overlay.dtbo-base := bengal-idp.dtb
+bengal-idp-overlay.dtbo-base := bengal.dtb
 else
 dtb-y += \
 	bengal-idp.dtb
