@@ -55,6 +55,8 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+	ICNSS_DRIVER_EVENT_M3_DUMP_UPLOAD_REQ,
+	ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -172,10 +174,12 @@ struct icnss_fw_mem {
 	unsigned long attrs;
 };
 
-enum icnss_power_save_mode {
+enum icnss_smp2p_msg_id {
 	ICNSS_POWER_SAVE_ENTER = 1,
 	ICNSS_POWER_SAVE_EXIT,
+	ICNSS_TRIGGER_SSR,
 };
+
 struct icnss_stats {
 	struct {
 		uint32_t posted;
@@ -387,6 +391,11 @@ struct icnss_priv {
 	uint8_t *diag_reg_read_buf;
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
+	struct ramdump_device *m3_dump_dev_seg1;
+	struct ramdump_device *m3_dump_dev_seg2;
+	struct ramdump_device *m3_dump_dev_seg3;
+	struct ramdump_device *m3_dump_dev_seg4;
+	struct ramdump_device *m3_dump_dev_seg5;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
 	bool early_crash_ind;
@@ -419,6 +428,7 @@ struct icnss_priv {
 	void *hang_event_data;
 	struct list_head icnss_tcdev_list;
 	struct mutex tcdev_lock;
+	u32 hw_trc_override;
 };
 
 struct icnss_reg_info {
