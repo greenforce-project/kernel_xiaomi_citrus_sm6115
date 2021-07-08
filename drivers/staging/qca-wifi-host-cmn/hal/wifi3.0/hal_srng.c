@@ -214,7 +214,7 @@ QDF_STATUS hal_construct_shadow_regs(void *hal_soc)
 			shadow_config_index;
 		hal->list_shadow_reg_config[i].va =
 			SHADOW_REGISTER(shadow_config_index) +
-			(uint64_t)hal->dev_base_addr;
+			(uintptr_t)hal->dev_base_addr;
 		hal_debug("target_reg %x, shadow register 0x%x shadow_index 0x%x",
 			  hal->shadow_config[shadow_config_index].addr,
 			  SHADOW_REGISTER(shadow_config_index),
@@ -1046,17 +1046,15 @@ void hal_reo_read_write_ctrl_ix(hal_soc_handle_t hal_soc_hdl, bool read,
 }
 
 /**
- * hal_srng_dst_set_hp_paddr() - Set physical address to dest ring head pointer
+ * hal_srng_dst_set_hp_paddr_confirm() - Set physical address to dest ring head
+ *  pointer and confirm that write went through by reading back the value
  * @srng: sring pointer
  * @paddr: physical address
  */
-void hal_srng_dst_set_hp_paddr(struct hal_srng *srng,
-			       uint64_t paddr)
+void hal_srng_dst_set_hp_paddr_confirm(struct hal_srng *srng, uint64_t paddr)
 {
-	SRNG_DST_REG_WRITE(srng, HP_ADDR_LSB,
-			   paddr & 0xffffffff);
-	SRNG_DST_REG_WRITE(srng, HP_ADDR_MSB,
-			   paddr >> 32);
+	SRNG_DST_REG_WRITE_CONFIRM(srng, HP_ADDR_LSB, paddr & 0xffffffff);
+	SRNG_DST_REG_WRITE_CONFIRM(srng, HP_ADDR_MSB, paddr >> 32);
 }
 
 /**
