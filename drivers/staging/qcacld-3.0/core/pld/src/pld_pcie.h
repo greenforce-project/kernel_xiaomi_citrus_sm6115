@@ -484,7 +484,7 @@ static inline void pld_pcie_link_down(struct device *dev)
 static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
 					uint32_t len)
 {
-	return cnss_pci_get_reg_dump(dev, buf, len);
+	return 0;
 }
 #else
 static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
