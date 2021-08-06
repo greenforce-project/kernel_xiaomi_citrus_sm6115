@@ -46,3 +46,11 @@ config QCOM_KGSL_PROCESS_RECLAIM
 	  foreground/background activity through the sysfs entry exposed per
 	  process. Based on this kgsl can unpin the pages of the process and
 	  make those pages available to the Per Process Reclaim (PPR).
+
+config QCOM_KGSL_CORESIGHT
+	bool "Enable coresight support for the Adreno GPU"
+	depends on QCOM_KGSL && CORESIGHT
+	help
+	  When enabled, the Adreno GPU is available as a source for Coresight
+	  data. On a6xx targets there are two sources available for the GX and
+	  CX domains respectively. Debug kernels should say 'Y' here.
