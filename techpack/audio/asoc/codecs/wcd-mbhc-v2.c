@@ -25,12 +25,11 @@
 #include "wcd-mbhc-legacy.h"
 #include "wcd-mbhc-adc.h"
 #include <asoc/wcd-mbhc-v2-api.h>
-
-#ifdef CONFIG_MACH_XIAOMI_LIME
+#ifdef CONFIG_SWITCH
 #include <linux/switch.h>
 #endif
 
-#ifdef CONFIG_MACH_XIAOMI_LIME
+#ifdef CONFIG_SWITCH
 /* cable type show in sys/class/switch/h2w/state */
 enum accdet_type_state_value {
 	NO_DEVICE_STATE = 0,
@@ -938,7 +937,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 	pr_debug("%s: mbhc->current_plug: %d detection_type: %d\n", __func__,
 			mbhc->current_plug, detection_type);
-#ifdef CONFIG_MACH_XIAOMI_LIME
+#ifdef CONFIG_SWITCH
 	switch_set_state(&accdet_data, detection_type ? PLUG_IN_STATE : NO_DEVICE_STATE);
 #endif
 	if (mbhc->mbhc_fn->wcd_cancel_hs_detect_plug)
@@ -1761,7 +1760,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 
 	pr_debug("%s: enter\n", __func__);
 
-#ifdef CONFIG_MACH_XIAOMI_LIME
+#ifdef CONFIG_SWITCH
 	accdet_data.name = "h2w";
 	accdet_data.index = 0;
 	accdet_data.state = 0;
@@ -2027,7 +2026,7 @@ err_mbhc_sw_irq:
 	mutex_destroy(&mbhc->codec_resource_lock);
 err:
 	pr_debug("%s: leave ret %d\n", __func__, ret);
-#ifdef CONFIG_MACH_XIAOMI_LIME
+#ifdef CONFIG_SWITCH
 	switch_dev_unregister(&accdet_data);
 #endif
 	return ret;
@@ -2061,7 +2060,7 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 	mutex_destroy(&mbhc->codec_resource_lock);
 	mutex_destroy(&mbhc->hphl_pa_lock);
 	mutex_destroy(&mbhc->hphr_pa_lock);
-#ifndef CONFIG_MACH_XIAOMI_LIME
+#ifndef CONFIG_SWITCH
 	switch_dev_unregister(&accdet_data);
 #endif
 }
