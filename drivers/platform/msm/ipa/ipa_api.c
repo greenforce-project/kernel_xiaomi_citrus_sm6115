@@ -97,8 +97,6 @@
 
 #if defined(CONFIG_IPA_EMULATION)
 static bool running_emulation = true;
-#elif defined(CONFIG_PCI)
-static bool running_emulation;
 #endif
 
 static enum ipa_hw_type ipa_api_hw_type;
@@ -3200,7 +3198,7 @@ static const struct pci_error_handlers ipa_pci_err_handler = {
 	.resume = ipa_pci_io_resume,
 };
 
-static struct pci_driver ipa_pci_driver = {
+static struct pci_driver ipa_pci_driver __maybe_unused = {
 	.name     = ipa_pci_driver_name,
 	.id_table = ipa_pci_tbl,
 	.probe    = ipa_pci_probe,
@@ -3899,7 +3897,7 @@ static void ipa_pci_io_resume(struct pci_dev *pci_dev)
 static int __init ipa_module_init(void)
 {
 	pr_debug("IPA module init\n");
-#ifdef CONFIG_PCI
+#if defined(CONFIG_PCI) && defined(CONFIG_IPA_EMULATION)
 	if (running_emulation) {
 		/* Register as a PCI device driver */
 		return pci_register_driver(&ipa_pci_driver);
