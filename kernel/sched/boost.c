@@ -46,7 +46,7 @@ static void set_boost_policy(int type)
 		return;
 	}
 
-	if (min_possible_efficiency != max_possible_efficiency) {
+	if (CONFIG_ARCH_BENGAL) {
 		boost_policy = SCHED_BOOST_ON_BIG;
 		return;
 	}
