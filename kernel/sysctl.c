@@ -147,8 +147,8 @@ static int ten_thousand = 10000;
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
 static int max_kswapd_threads = MAX_KSWAPD_THREADS;
-static int __maybe_unused two_hundred_million = 200000000;
 static int two_hundred_fifty_five = 255;
+static int __maybe_unused two_hundred_million = 200000000;
 
 #ifdef CONFIG_SCHED_WALT
 const int sched_user_hint_max = 1000;
@@ -574,7 +574,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler   = proc_dointvec_minmax,
 		.extra1		= &zero,
-		.extra2		= &two,
+		.extra2		= &four,
 	},
 	{
 		.procname	= "walt_rtg_cfs_boost_prio",
@@ -781,6 +781,22 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &one,
 	},
 #endif
+	{
+		.procname	= "sched_lib_name",
+		.data		= sched_lib_name,
+		.maxlen		= LIB_PATH_LENGTH,
+		.mode		= 0644,
+		.proc_handler	= proc_dostring,
+	},
+	{
+		.procname	= "sched_lib_mask_force",
+		.data		= &sched_lib_mask_force,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &two_hundred_fifty_five,
+	},
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 	{
 		.procname	= "sched_energy_aware",
@@ -792,22 +808,6 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one,
 	},
 #endif
-	{
-		.procname	= "sched_lib_name",
-		.data		= sched_lib_name,
-		.maxlen		= LIB_PATH_LENGTH,
-		.mode		= 0644,
-		.proc_handler	= sysctl_sched_lib_name_handler,
-	},
-	{
-		.procname	= "sched_lib_mask_force",
-		.data		= &sched_lib_mask_force,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &two_hundred_fifty_five,
-	},
 #ifdef CONFIG_PROVE_LOCKING
 	{
 		.procname	= "prove_locking",

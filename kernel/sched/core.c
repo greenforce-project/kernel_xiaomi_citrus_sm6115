@@ -1195,17 +1195,8 @@ static void uclamp_fork(struct task_struct *p)
 		return;
 
 	for_each_clamp_id(clamp_id) {
-		unsigned int clamp_value = uclamp_none(clamp_id);
-
-		/* By default, RT tasks always get 100% boost */
-		if (sched_feat(SUGOV_RT_MAX_FREQ) &&
-			       unlikely(rt_task(p) &&
-			       clamp_id == UCLAMP_MIN)) {
-
-			clamp_value = uclamp_none(UCLAMP_MAX);
-		}
-
-		uclamp_se_set(&p->uclamp_req[clamp_id], clamp_value, false);
+		uclamp_se_set(&p->uclamp_req[clamp_id],
+			      uclamp_none(clamp_id), false);
 	}
 }
 
@@ -1534,16 +1525,11 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
 
 	WRITE_ONCE(p->on_rq, TASK_ON_RQ_MIGRATING);
 	dequeue_task(rq, p, DEQUEUE_NOCLOCK);
-#ifdef CONFIG_SCHED_WALT
 	double_lock_balance(rq, cpu_rq(new_cpu));
 	if (!(rq->clock_update_flags & RQCF_UPDATED))
 		update_rq_clock(rq);
 	set_task_cpu(p, new_cpu);
 	double_rq_unlock(cpu_rq(new_cpu), rq);
-#else
-	set_task_cpu(p, new_cpu);
-	rq_unlock(rq, rf);
-#endif
 
 	rq = cpu_rq(new_cpu);
 
@@ -5692,71 +5678,22 @@ EXPORT_SYMBOL_GPL(sched_setaffinity);
 
 char sched_lib_name[LIB_PATH_LENGTH];
 unsigned int sched_lib_mask_force;
-struct libname_node {
-	char *name;
-	struct list_head list;
-};
-static LIST_HEAD(__sched_lib_name_list);
-static DEFINE_SPINLOCK(__sched_lib_name_lock);
-
-/*
- * A sysctl callback for handling 'sched_lib_name' operation. Except processing
- * the data with the usual function 'proc_dostring()', additionally tokenize the
- * input text with the dilimiter ',' and store in a linked list
- * '__sched_lib_name_list'.
- */
-int sysctl_sched_lib_name_handler(struct ctl_table *table, int write,
-				  void __user *buffer, size_t *lenp,
-				  loff_t *ppos)
-{
-	int ret;
-	char *curr, *next;
-	char dup_sched_lib_name[LIB_PATH_LENGTH];
-	struct libname_node *pos, *tmp;
-
-	ret = proc_dostring(table, write, buffer, lenp, ppos);
-	if (write && !ret) {
-		spin_lock(&__sched_lib_name_lock);
-		/* Free the old list. */
-		if (!list_empty(&__sched_lib_name_list)) {
-			list_for_each_entry_safe (
-				pos, tmp, &__sched_lib_name_list, list) {
-				list_del(&pos->list);
-				kfree(pos->name);
-				kfree(pos);
-			}
-		}
-
-		if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0) {
-			spin_unlock(&__sched_lib_name_lock);
-			return 0;
-		}
-
-		/* Split sched_lib_name by ',' and store in a linked list. */
-		strlcpy(dup_sched_lib_name, sched_lib_name, LIB_PATH_LENGTH);
-		next = dup_sched_lib_name;
-		while ((curr = strsep(&next, ",")) != NULL) {
-			pos = kmalloc(sizeof(struct libname_node), GFP_KERNEL);
-			pos->name = kstrdup(curr, GFP_KERNEL);
-			list_add_tail(&pos->list, &__sched_lib_name_list);
-		}
-		spin_unlock(&__sched_lib_name_lock);
-	}
-
-	return ret;
-}
-
 bool is_sched_lib_based_app(pid_t pid)
 {
 	const char *name = NULL;
+	char *libname, *lib_list;
 	struct vm_area_struct *vma;
 	char path_buf[LIB_PATH_LENGTH];
+	char *tmp_lib_name;
 	bool found = false;
 	struct task_struct *p;
 	struct mm_struct *mm;
-	struct libname_node *pos;
 
 	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
+		return false;
+
+	tmp_lib_name = kmalloc(LIB_PATH_LENGTH, GFP_KERNEL);
+	if (!tmp_lib_name)
 		return false;
 
 	rcu_read_lock();
@@ -5764,23 +5701,13 @@ bool is_sched_lib_based_app(pid_t pid)
 	p = find_process_by_pid(pid);
 	if (!p) {
 		rcu_read_unlock();
+		kfree(tmp_lib_name);
 		return false;
 	}
 
 	/* Prevent p going away */
 	get_task_struct(p);
 	rcu_read_unlock();
-
-	spin_lock(&__sched_lib_name_lock);
-	/* Check if the task name equals any of the sched_lib_name list. */
-	list_for_each_entry (pos, &__sched_lib_name_list, list) {
-		if (!strncmp(p->comm, pos->name, LIB_PATH_LENGTH)) {
-			found = true;
-			spin_unlock(&__sched_lib_name_lock);
-			goto put_task_struct;
-		}
-	}
-	spin_unlock(&__sched_lib_name_lock);
 
 	mm = get_task_mm(p);
 	if (!mm)
@@ -5794,18 +5721,16 @@ bool is_sched_lib_based_app(pid_t pid)
 			if (IS_ERR(name))
 				goto release_sem;
 
-			/* Check if the file name includes any of the
-			 * sched_lib_name list. */
-			spin_lock(&__sched_lib_name_lock);
-			list_for_each_entry (pos, &__sched_lib_name_list,
-					     list) {
-				if (strnstr(name, pos->name,
-					    strnlen(name, LIB_PATH_LENGTH))) {
+			strlcpy(tmp_lib_name, sched_lib_name, LIB_PATH_LENGTH);
+			lib_list = tmp_lib_name;
+			while ((libname = strsep(&lib_list, ","))) {
+				libname = skip_spaces(libname);
+				if (strnstr(name, libname,
+					strnlen(name, LIB_PATH_LENGTH))) {
 					found = true;
-					break;
+					goto release_sem;
 				}
 			}
-			spin_unlock(&__sched_lib_name_lock);
 		}
 	}
 
@@ -5814,6 +5739,7 @@ release_sem:
 	mmput(mm);
 put_task_struct:
 	put_task_struct(p);
+	kfree(tmp_lib_name);
 	return found;
 }
 
@@ -7214,8 +7140,6 @@ static struct kmem_cache *task_group_cache __read_mostly;
 
 DECLARE_PER_CPU(cpumask_var_t, load_balance_mask);
 DECLARE_PER_CPU(cpumask_var_t, select_idle_mask);
-DECLARE_PER_CPU(unsigned long *, prioritized_task_mask);
-DECLARE_PER_CPU(int, prioritized_task_nr);
 
 void __init sched_init(void)
 {
@@ -7288,9 +7212,6 @@ void __init sched_init(void)
 		rq = cpu_rq(i);
 		raw_spin_lock_init(&rq->lock);
 		rq->nr_running = 0;
-		per_cpu(prioritized_task_mask, i) =
-			bitmap_zalloc(TASK_BITS, GFP_KERNEL);
-		per_cpu(prioritized_task_nr, i) = 0;
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);
@@ -7344,9 +7265,7 @@ void __init sched_init(void)
 		rq->idle_stamp = 0;
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
-#ifdef CONFIG_SCHED_WALT
 		rq->push_task = NULL;
-#endif
 		walt_sched_init_rq(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
