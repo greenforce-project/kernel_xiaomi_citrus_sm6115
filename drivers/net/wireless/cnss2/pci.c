@@ -3652,7 +3652,7 @@ int cnss_smmu_map(struct device *dev,
 
 	pci_priv->smmu_iova_ipa_current = iova + len;
 	*iova_addr = (uint32_t)(iova + paddr - rounddown(paddr, PAGE_SIZE));
-	cnss_pr_dbg("IOMMU map: iova_addr %lx\n", *iova_addr);
+	cnss_pr_dbg("IOMMU map: iova_addr %x\n", *iova_addr);
 
 	return 0;
 }
@@ -4523,7 +4523,7 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 {
 	struct cnss_pci_data *pci_priv = priv;
 	struct cnss_plat_data *plat_priv;
-	enum cnss_recovery_reason cnss_reason;
+	enum cnss_recovery_reason cnss_reason = 0;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL");
