@@ -711,16 +711,6 @@ else ifeq ($(cc-name),clang)
 KBUILD_CFLAGS   += -O3
 KBUILD_AFLAGS   += -O3
 KBUILD_LDFLAGS  += -O3
-# Use LLVM's Polly only when using clang
-# References: https://github.com/kdrag0n/proton_bluecross/commit/0537f23
-KBUILD_CFLAGS	+= -mllvm -polly \
-		   -mllvm -polly-run-dce \
-		   -mllvm -polly-run-inliner \
-		   -mllvm -polly-opt-fusion=max \
-		   -mllvm -polly-ast-use-context \
-		   -mllvm -polly-detect-keep-going \
-		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-invariant-load-hoisting
 else
 KBUILD_CFLAGS   += -O2
 KBUILD_AFLAGS   += -O2
