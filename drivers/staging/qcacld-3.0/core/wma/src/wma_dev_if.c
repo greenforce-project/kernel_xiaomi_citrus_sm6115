@@ -85,6 +85,7 @@
 #include "wlan_mlme_public_struct.h"
 #include "wlan_mlme_api.h"
 #include "wlan_mlme_main.h"
+#include "wlan_mlme_ucfg_api.h"
 #include <wlan_dfs_utils_api.h>
 #include "../../core/src/vdev_mgr_ops.h"
 #include "wlan_utility.h"
@@ -3807,7 +3808,7 @@ QDF_STATUS wma_send_peer_assoc_req(struct bss_params *add_bss)
 				      OL_TXRX_PEER_STATE_CONN);
 		status = wma_set_cdp_vdev_pause_reason(wma, vdev_id);
 		if (QDF_IS_STATUS_ERROR(status))
-			goto peer_cleanup;
+			goto send_resp;
 	}
 
 	wmi_unified_send_txbf(wma, &add_bss->staContext);
@@ -3828,7 +3829,7 @@ QDF_STATUS wma_send_peer_assoc_req(struct bss_params *add_bss)
 				     &add_bss->staContext);
 	if (QDF_IS_STATUS_ERROR(status)) {
 		WMA_LOGE("Failed to send peer assoc status:%d", status);
-		goto peer_cleanup;
+		goto send_resp;
 	}
 
 	/* we just had peer assoc, so install key will be done later */
@@ -3849,7 +3850,7 @@ QDF_STATUS wma_send_peer_assoc_req(struct bss_params *add_bss)
 	if (!mlme_obj) {
 		WMA_LOGE("Failed to mlme obj");
 		status = QDF_STATUS_E_FAILURE;
-		goto peer_cleanup;
+		goto send_resp;
 	}
 	/*
 	 * Store the bssid in interface table, bssid will
@@ -3874,14 +3875,11 @@ QDF_STATUS wma_send_peer_assoc_req(struct bss_params *add_bss)
 			 vdev_id);
 		wma_remove_req(wma, vdev_id, WMA_PEER_ASSOC_CNF_START);
 		status = QDF_STATUS_E_FAILURE;
-		goto peer_cleanup;
+		goto send_resp;
 	}
 
 	return QDF_STATUS_SUCCESS;
 
-peer_cleanup:
-	if (peer_exist)
-		wma_remove_peer(wma, add_bss->bssId, vdev_id, false);
 send_resp:
 	wma_send_add_bss_resp(wma, vdev_id, status);
 
@@ -4871,9 +4869,10 @@ fail_del_bss_ho_fail:
 static void wma_wait_tx_complete(tp_wma_handle wma,
 				uint32_t session_id)
 {
-	uint8_t max_wait_iterations = 0;
+	uint8_t max_wait_iterations = 0, delay = 0;
 	cdp_config_param_type val;
 	void *soc = cds_get_context(QDF_MODULE_ID_SOC);
+	QDF_STATUS status;
 
 	if (!wma_is_vdev_valid(session_id)) {
 		WMA_LOGE("%s: Vdev is not valid: %d",
@@ -4881,10 +4880,11 @@ static void wma_wait_tx_complete(tp_wma_handle wma,
 		return;
 	}
 
-	max_wait_iterations =
-		wma->interfaces[session_id].delay_before_vdev_stop /
-		WMA_TX_Q_RECHECK_TIMER_WAIT;
+	status = ucfg_mlme_get_delay_before_vdev_stop(wma->psoc, &delay);
+	if (QDF_IS_STATUS_ERROR(status))
+		wma_err("Failed to get delay before vdev stop");
 
+	max_wait_iterations = delay / WMA_TX_Q_RECHECK_TIMER_WAIT;
 	if (cdp_txrx_get_pdev_param(soc,
 				    wlan_objmgr_pdev_get_pdev_id(wma->pdev),
 				    CDP_TX_PENDING, &val))
