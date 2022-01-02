@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, 2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _MSM_VIDC_INTERNAL_H_
@@ -47,7 +47,7 @@
 #define MAX_NUM_INPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 
-#define MAX_SUPPORTED_INSTANCES 16
+#define MAX_SUPPORTED_INSTANCES 24
 
 /* Maintains the number of FTB's between each FBD over a window */
 #define DCVS_FTB_WINDOW 16
@@ -78,6 +78,9 @@
 
 #define NUM_MBS_PER_FRAME(__height, __width) \
 	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
+
+#define NUM_MBS_PER_FRAME_HEVC(__height, __width) \
+	((ALIGN(__height, 32) / 32) * (ALIGN(__width, 32) / 32))
 
 #define call_core_op(c, op, ...)			\
 	(((c) && (c)->core_ops && (c)->core_ops->op) ? \
@@ -551,6 +554,7 @@ struct msm_vidc_inst {
 	bool static_rotation_flip_enabled;
 	struct internal_buf *dpb_extra_binfo;
 	struct msm_vidc_codec_data *codec_data;
+	bool hdr10_sei_enabled;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
 	struct delayed_work batch_work;
