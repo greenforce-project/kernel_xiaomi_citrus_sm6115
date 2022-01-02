@@ -83,3 +83,4 @@ obj-$(CONFIG_FPR_FPC)		+= fpr_FingerprintCard/
 obj-y 	+= goodix/
 obj-y 	+= focaltech/
 obj-y   += cdfingerfp/
+obj-y                           += qrc/
