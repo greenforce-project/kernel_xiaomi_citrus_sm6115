@@ -46,6 +46,7 @@ endif
 ifeq ($(TARGET_SUPPORT), $(filter $(TARGET_SUPPORT), qrb5165 sxr2130))
 obj-m += asoc/codecs/bolero/
 obj-m += asoc/codecs/wcd938x/
+obj-m += asoc/codecs/wsa883x/
 endif
 
 ifeq ($(TARGET_SUPPORT), $(filter $(TARGET_SUPPORT), apq8053 sdm660 msm8953 msm8937))
