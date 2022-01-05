@@ -1353,7 +1353,7 @@ typedef enum {
     HTT_STATS_PREAM_HT,
     HTT_STATS_PREAM_VHT,
     HTT_STATS_PREAM_HE,
-    HTT_STATS_PREAM_RSVD,
+    HTT_STATS_PREAM_EHT,
     HTT_STATS_PREAM_RSVD1,
 
     HTT_STATS_PREAM_COUNT,
@@ -1929,6 +1929,11 @@ typedef struct {
     A_UINT32 delayed_bar_7; /* BAR sent for MU user 7 */
     A_UINT32 bar_with_tqm_head_seq_num;
     A_UINT32 bar_with_tid_seq_num;
+    A_UINT32 su_sw_rts_queued;  /* SW generated RTS frame queued to the HW */
+    A_UINT32 su_sw_rts_tried;   /* SW generated RTS frame sent over the air */
+    A_UINT32 su_sw_rts_err;     /* SW generated RTS frame completed with error */
+    A_UINT32 su_sw_rts_flushed; /* SW generated RTS frame flushed */
+    A_UINT32 su_sw_rts_rcvd_cts_diff_bw; /* CTS (RTS response) received in different BW */
 } htt_tx_selfgen_cmn_stats_tlv;
 
 typedef struct {
@@ -2748,6 +2753,25 @@ typedef struct {
     A_UINT32 q_empty_failure;
     A_UINT32 q_not_empty_failure;
     A_UINT32 add_msdu_failure;
+
+    /* TQM reset debug stats */
+    A_UINT32 tqm_cache_ctl_err;
+    A_UINT32 tqm_soft_reset;
+    A_UINT32 tqm_reset_total_num_in_use_link_descs;
+    A_UINT32 tqm_reset_worst_case_num_lost_link_descs;
+    A_UINT32 tqm_reset_worst_case_num_lost_host_tx_bufs_count;
+    A_UINT32 tqm_reset_num_in_use_link_descs_internal_tqm;
+    A_UINT32 tqm_reset_num_in_use_link_descs_wbm_idle_link_ring;
+    A_UINT32 tqm_reset_time_to_tqm_hang_delta_ms;
+    A_UINT32 tqm_reset_recovery_time_ms;
+    A_UINT32 tqm_reset_num_peers_hdl;
+    A_UINT32 tqm_reset_cumm_dirty_hw_mpduq_proc_cnt;
+    A_UINT32 tqm_reset_cumm_dirty_hw_msduq_proc;
+    A_UINT32 tqm_reset_flush_cache_cmd_su_cnt;
+    A_UINT32 tqm_reset_flush_cache_cmd_other_cnt;
+    A_UINT32 tqm_reset_flush_cache_cmd_trig_type;
+    A_UINT32 tqm_reset_flush_cache_cmd_trig_cfg;
+    A_UINT32 tqm_reset_flush_cache_cmd_skip_cmd_status_null;
 } htt_tx_tqm_error_stats_tlv;
 
 /* STATS_TYPE : HTT_DBG_EXT_STATS_PDEV_TQM
@@ -3525,6 +3549,7 @@ typedef struct {
 
 #define HTT_TX_PDEV_STATS_NUM_MCS_COUNTERS 12 /* 0-11 */
 #define HTT_TX_PDEV_STATS_NUM_EXTRA_MCS_COUNTERS 2 /* 12, 13 */
+#define HTT_TX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS 2 /* 14, 15 */
 #define HTT_TX_PDEV_STATS_NUM_GI_COUNTERS 4
 #define HTT_TX_PDEV_STATS_NUM_DCM_COUNTERS 5
 #define HTT_TX_PDEV_STATS_NUM_BW_COUNTERS 4
@@ -3550,6 +3575,18 @@ typedef struct {
         HTT_CHECK_SET_VAL(HTT_TX_PDEV_RATE_STATS_MAC_ID, _val); \
         ((_var) |= ((_val) << HTT_TX_PDEV_RATE_STATS_MAC_ID_S)); \
     } while (0)
+
+/*
+ * Introduce new TX counters to support 320MHz support and punctured modes
+ */
+typedef enum {
+    HTT_TX_PDEV_STATS_PUNCTURED_NONE = 0,
+    HTT_TX_PDEV_STATS_PUNCTURED_20 = 1,
+    HTT_TX_PDEV_STATS_PUNCTURED_40 = 2,
+    HTT_TX_PDEV_STATS_PUNCTURED_80 = 3,
+    HTT_TX_PDEV_STATS_PUNCTURED_120 = 4,
+    HTT_TX_PDEV_STATS_NUM_PUNCTURED_MODE_COUNTERS = 5
+} HTT_TX_PDEV_STATS_NUM_PUNCTURED_MODE_TYPE;
 
 typedef struct {
     htt_tlv_hdr_t tlv_hdr;
@@ -3652,6 +3689,11 @@ typedef struct {
     A_UINT32 ax_mu_mimo_tx_gi_ext[HTT_TX_PDEV_STATS_NUM_GI_COUNTERS][HTT_TX_PDEV_STATS_NUM_EXTRA_MCS_COUNTERS];
     /* 11AX VHT DL MU OFDMA extended TX guard interval stats for MCS 12/13 */
     A_UINT32 ofdma_tx_gi_ext[HTT_TX_PDEV_STATS_NUM_GI_COUNTERS][HTT_TX_PDEV_STATS_NUM_EXTRA_MCS_COUNTERS];
+    /* Stats for MCS 14/15 */
+    A_UINT32 tx_mcs_ext_2[HTT_TX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS];
+    A_UINT32 tx_bw_320mhz;
+    A_UINT32 tx_gi_ext_2[HTT_TX_PDEV_STATS_NUM_GI_COUNTERS][HTT_TX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS];
+    A_UINT32 tx_su_punctured_mode[HTT_TX_PDEV_STATS_NUM_PUNCTURED_MODE_COUNTERS];
 } htt_tx_pdev_rate_stats_tlv;
 
 /* STATS_TYPE : HTT_DBG_EXT_STATS_PDEV_TX_RATE
@@ -3672,12 +3714,14 @@ typedef struct {
 #define HTT_RX_PDEV_STATS_NUM_LEGACY_OFDM_STATS 8
 #define HTT_RX_PDEV_STATS_NUM_MCS_COUNTERS 12 /* 0-11 */
 #define HTT_RX_PDEV_STATS_NUM_EXTRA_MCS_COUNTERS 2 /* 12, 13 */
+#define HTT_RX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS 2 /* 14, 15 */
 #define HTT_RX_PDEV_STATS_NUM_MCS_COUNTERS_EXT 14 /* 0-13 */
 #define HTT_RX_PDEV_STATS_NUM_GI_COUNTERS 4
 #define HTT_RX_PDEV_STATS_NUM_DCM_COUNTERS 5
 #define HTT_RX_PDEV_STATS_NUM_BW_COUNTERS 4
 #define HTT_RX_PDEV_STATS_TOTAL_BW_COUNTERS \
     (HTT_RX_PDEV_STATS_NUM_BW_EXT_COUNTERS + HTT_RX_PDEV_STATS_NUM_BW_COUNTERS)
+#define HTT_RX_PDEV_STATS_NUM_BW_EXT2_COUNTERS 5 /* 20, 40, 80, 160, 320Mhz */
 #define HTT_RX_PDEV_STATS_NUM_SPATIAL_STREAMS 8
 #define HTT_RX_PDEV_STATS_ULMUMIMO_NUM_SPATIAL_STREAMS 8
 #define HTT_RX_PDEV_STATS_NUM_PREAMBLE_TYPES HTT_STATS_PREAM_COUNT
@@ -3716,6 +3760,16 @@ typedef struct {
         HTT_CHECK_SET_VAL(HTT_RX_PDEV_RATE_STATS_MAC_ID, _val); \
         ((_var) |= ((_val) << HTT_RX_PDEV_RATE_STATS_MAC_ID_S)); \
     } while (0)
+
+/* Introduce new RX counters to support 320MHZ support and punctured modes */
+typedef enum {
+    HTT_RX_PDEV_STATS_PUNCTURED_NONE = 0,
+    HTT_RX_PDEV_STATS_PUNCTURED_20 = 1,
+    HTT_RX_PDEV_STATS_PUNCTURED_40 = 2,
+    HTT_RX_PDEV_STATS_PUNCTURED_80 = 3,
+    HTT_RX_PDEV_STATS_PUNCTURED_120 = 4,
+    HTT_RX_PDEV_STATS_NUM_PUNCTURED_MODE_COUNTERS = 5
+} HTT_RX_PDEV_STATS_NUM_PUNCTURED_MODE_TYPE;
 
 typedef struct {
     htt_tlv_hdr_t tlv_hdr;
@@ -3861,6 +3915,11 @@ typedef struct {
     A_UINT32 rx_11ax_su_txbf_mcs_ext[HTT_RX_PDEV_STATS_NUM_MCS_COUNTERS_EXT];
     A_UINT32 rx_11ax_mu_txbf_mcs_ext[HTT_RX_PDEV_STATS_NUM_MCS_COUNTERS_EXT];
     A_UINT32 rx_11ax_dl_ofdma_mcs_ext[HTT_RX_PDEV_STATS_NUM_MCS_COUNTERS_EXT];
+    /* MCS 14,15 */
+    A_UINT32 rx_mcs_ext_2[HTT_RX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS];
+    A_UINT32 rx_bw_ext[HTT_RX_PDEV_STATS_NUM_BW_EXT2_COUNTERS];
+    A_UINT32 rx_gi_ext_2[HTT_RX_PDEV_STATS_NUM_GI_COUNTERS][HTT_RX_PDEV_STATS_NUM_EXTRA2_MCS_COUNTERS];
+    A_UINT32 rx_su_punctured_mode[HTT_RX_PDEV_STATS_NUM_PUNCTURED_MODE_COUNTERS];
 } htt_rx_pdev_rate_ext_stats_tlv;
 
 /* STATS_TYPE : HTT_DBG_EXT_STATS_PDEV_RX_RATE_EXT
@@ -5598,6 +5657,12 @@ typedef struct {
      * 0-disabled, 1-enabled
      */
     A_UINT32 dyn_cca_status;
+    /* RXDEAF Register value
+     * rxdesense_thresh_sw - VREG Register
+     * rxdesense_thresh_hw - PHY Register
+     */
+    A_UINT32 rxdesense_thresh_sw;
+    A_UINT32 rxdesense_thresh_hw;
 } htt_phy_reset_stats_tlv;
 
 typedef struct {
