@@ -50,7 +50,6 @@ static struct proc_dir_entry *last_ssr_reason_entry;
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
 
-<<<<<<< HEAD
 #define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
 
 static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
