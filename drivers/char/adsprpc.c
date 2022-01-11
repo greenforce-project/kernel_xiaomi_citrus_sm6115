@@ -2789,7 +2789,7 @@ bail:
 	return err;
 }
 
-static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
+static int __maybe_unused fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
 {
 	int err = 0;
 	uint64_t cpuinfo = 0;
