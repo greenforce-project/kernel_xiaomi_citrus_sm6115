@@ -710,7 +710,6 @@ KBUILD_LDFLAGS  += -Os
 else ifeq ($(cc-name),clang)
 KBUILD_CFLAGS   += -O3
 KBUILD_AFLAGS   += -O3
-KBUILD_LDFLAGS  += -O3
 else
 KBUILD_CFLAGS   += -O2
 KBUILD_AFLAGS   += -O2
@@ -788,10 +787,6 @@ endif
 # These warnings generated too much noise in a regular build.
 # Use make W=1 to enable them (see scripts/Makefile.extrawarn)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
-
-ifeq ($(ld-name),lld)
-KBUILD_LDFLAGS += -O2
-endif
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
 ifdef CONFIG_FRAME_POINTER
