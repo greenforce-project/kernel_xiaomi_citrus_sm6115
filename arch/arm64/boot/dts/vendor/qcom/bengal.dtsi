@@ -1023,7 +1023,6 @@
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
-		qcom,wakeup-enable;
 	};
 
 	rpm_bus: qcom,rpm-smd {
