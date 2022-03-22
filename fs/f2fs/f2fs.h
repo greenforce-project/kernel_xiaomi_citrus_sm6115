@@ -129,7 +129,9 @@ typedef u32 nid_t;
 
 struct f2fs_rwsem {
         struct rw_semaphore internal_rwsem;
+#ifdef CONFIG_F2FS_UNFAIR_RWSEM
         wait_queue_head_t read_waiters;
+#endif
 };
 
 struct f2fs_mount_info {
@@ -576,6 +578,9 @@ enum {
 
 /* maximum retry quota flush count */
 #define DEFAULT_RETRY_QUOTA_FLUSH_COUNT		8
+
+/* maximum retry of EIO'ed meta page */
+#define MAX_RETRY_META_PAGE_EIO			100
 
 #define F2FS_LINK_MAX	0xffffffff	/* maximum link count per file */
 
@@ -1289,6 +1294,7 @@ enum {
 	SBI_QUOTA_SKIP_FLUSH,			/* skip flushing quota in current CP */
 	SBI_QUOTA_NEED_REPAIR,			/* quota file may be corrupted */
 	SBI_IS_RESIZEFS,			/* resizefs is in process */
+	SBI_IS_FREEZING,			/* freezefs is in process */
 };
 
 enum {
@@ -1308,6 +1314,7 @@ enum {
 	GC_IDLE_AT,
 	GC_URGENT_HIGH,
 	GC_URGENT_LOW,
+	GC_URGENT_MID,
 	MAX_GC_MODE,
 };
 
@@ -1621,6 +1628,8 @@ struct f2fs_sb_info {
 	/* keep migration IO order for LFS mode */
 	struct f2fs_rwsem io_order_lock;
 	mempool_t *write_io_dummy;		/* Dummy pages */
+	pgoff_t metapage_eio_ofs;		/* EIO page offset */
+	int metapage_eio_cnt;			/* EIO count */
 
 	/* for checkpoint */
 	struct f2fs_checkpoint *ckpt;		/* raw checkpoint pointer */
@@ -2128,10 +2137,20 @@ static inline void clear_ckpt_flags(struct f2fs_sb_info *sbi, unsigned int f)
 	spin_unlock_irqrestore(&sbi->cp_lock, flags);
 }
 
-static inline void init_f2fs_rwsem(struct f2fs_rwsem *sem)
+#define init_f2fs_rwsem(sem)					\
+do {								\
+	static struct lock_class_key __key;			\
+								\
+	__init_f2fs_rwsem((sem), #sem, &__key);			\
+} while (0)
+
+static inline void __init_f2fs_rwsem(struct f2fs_rwsem *sem,
+		const char *sem_name, struct lock_class_key *key)
 {
-	init_rwsem(&sem->internal_rwsem);
+	__init_rwsem(&sem->internal_rwsem, sem_name, key);
+#ifdef CONFIG_F2FS_UNFAIR_RWSEM
 	init_waitqueue_head(&sem->read_waiters);
+#endif
 }
 
 static inline int f2fs_rwsem_is_locked(struct f2fs_rwsem *sem)
@@ -2146,7 +2165,11 @@ static inline int f2fs_rwsem_is_contended(struct f2fs_rwsem *sem)
 
 static inline void f2fs_down_read(struct f2fs_rwsem *sem)
 {
+#ifdef CONFIG_F2FS_UNFAIR_RWSEM
 	wait_event(sem->read_waiters, down_read_trylock(&sem->internal_rwsem));
+#else
+	down_read(&sem->internal_rwsem);
+#endif
 }
 
 static inline int f2fs_down_read_trylock(struct f2fs_rwsem *sem)
@@ -2181,7 +2204,9 @@ static inline int f2fs_down_write_trylock(struct f2fs_rwsem *sem)
 static inline void f2fs_up_write(struct f2fs_rwsem *sem)
 {
 	up_write(&sem->internal_rwsem);
+#ifdef CONFIG_F2FS_UNFAIR_RWSEM
 	wake_up_all(&sem->read_waiters);
+#endif
 }
 
 static inline void f2fs_lock_op(struct f2fs_sb_info *sbi)
@@ -2772,6 +2797,9 @@ static inline bool is_idle(struct f2fs_sb_info *sbi, int type)
 
 	if (is_inflight_io(sbi, type))
 		return false;
+
+	if (sbi->gc_mode == GC_URGENT_MID)
+		return true;
 
 	if (sbi->gc_mode == GC_URGENT_LOW &&
 			(type == DISCARD_TIME || type == GC_TIME))
