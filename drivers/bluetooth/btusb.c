@@ -268,8 +268,12 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x0cf3, 0xe009), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0cf3, 0xe010), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0cf3, 0xe300), .driver_info = BTUSB_QCA_ROME },
+	{ USB_DEVICE(0x0cf3, 0xe500), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0cf3, 0xe301), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0cf3, 0xe360), .driver_info = BTUSB_QCA_ROME },
+	{ USB_DEVICE(0x0cf3, 0xe400), .driver_info = BTUSB_QCA_ROME },
+	{ USB_DEVICE(0x05c6, 0x9901), .driver_info = BTUSB_QCA_ROME },
+	{ USB_DEVICE(0x05c6, 0x9903), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0489, 0xe092), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0489, 0xe09f), .driver_info = BTUSB_QCA_ROME },
 	{ USB_DEVICE(0x0489, 0xe0a2), .driver_info = BTUSB_QCA_ROME },
@@ -428,6 +432,7 @@ static const struct dmi_system_id btusb_needs_reset_resume_table[] = {
 	},
 	{}
 };
+
 
 #define BTUSB_MAX_ISOC_FRAMES	10
 
@@ -1143,6 +1148,11 @@ static int btusb_open(struct hci_dev *hdev)
 
 	data->intf->needs_remote_wakeup = 1;
 
+	/* device specific wakeup source enabled and required
+	 * for USB remote wakeup while host is suspended
+	 */
+	device_wakeup_enable(&data->udev->dev);
+
 	if (test_and_set_bit(BTUSB_INTR_RUNNING, &data->flags))
 		goto done;
 
@@ -1206,6 +1216,7 @@ static int btusb_close(struct hci_dev *hdev)
 		goto failed;
 
 	data->intf->needs_remote_wakeup = 0;
+	device_wakeup_disable(&data->udev->dev);
 	usb_autopm_put_interface(data->intf);
 
 failed:
@@ -1445,6 +1456,72 @@ static inline int __set_isoc_interface(struct hci_dev *hdev, int altsetting)
 	}
 
 	return 0;
+}
+
+int btusb_update(struct hci_dev *hdev, void __user *arg)
+{
+	struct hci_conn_hash *h;
+	struct btusb_data *data;
+	int ret = -1;
+	unsigned long flags;
+	int update_alt;
+
+	if (copy_from_user(&update_alt, arg, sizeof(update_alt))) {
+		BT_ERR("ker-usb: %s: copy_from_user fail, return -ENODEV",
+		       __func__);
+		return -EFAULT;
+	}
+	BT_ERR("ker-usb: %s: update_alt = %d %p", __func__, update_alt, arg);
+	if (!hdev) {
+		BT_ERR("ker-usb: %s: hdev NULL, return -ENODEV", __func__);
+		return -ENODEV;
+	}
+	data = hci_get_drvdata(hdev);
+	if (!data) {
+		BT_ERR("ker-usb: %s: data is null, return -ENODEV", __func__);
+		return -ENODEV;
+	}
+	clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+	usb_kill_anchored_urbs(&data->isoc_anchor);
+	spin_lock_irqsave(&data->rxlock, flags);
+	kfree_skb(data->sco_skb);
+	data->sco_skb = NULL;
+	spin_unlock_irqrestore(&data->rxlock, flags);
+	BT_ERR("ker-usb: %s: %s: do set", __func__, hdev->name);
+	ret = __set_isoc_interface(hdev, update_alt);
+	if (ret < 0) {
+		BT_ERR("ker-usb: %s: %s: do set fail with error :%d", __func__,
+		       hdev->name, ret);
+		return ret;
+	}
+
+	if (update_alt && !test_and_set_bit(BTUSB_ISOC_RUNNING, &data->flags)) {
+		/*submit the URBs if channel is enable*/
+		ret = btusb_submit_isoc_urb(hdev, GFP_KERNEL);
+		if (ret < 0) {
+			BT_ERR("%s: %s: btusb_submit_isoc_urb failed: %d",
+			       __func__, hdev->name, ret);
+			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+			return ret;
+		}
+		ret = btusb_submit_isoc_urb(hdev, GFP_KERNEL);
+		if (ret < 0) {
+			BT_ERR("%s: %s: btusb_submit_isoc_urb failed: %d",
+			       __func__, hdev->name, ret);
+			clear_bit(BTUSB_ISOC_RUNNING, &data->flags);
+			return ret;
+		}
+	}
+
+	BT_DBG("ker-usb: %s: %s: do set done, status :%d", __func__, hdev->name,
+	       ret);
+
+	h = &hdev->conn_hash;
+	h->sco_num = 1;
+
+	BT_ERR("ker-usb: %s: %s: do set done, froce! sco_num :%d", __func__,
+	       hdev->name, h->sco_num);
+	return ret;
 }
 
 static void btusb_work(struct work_struct *work)
@@ -2042,9 +2119,9 @@ static int btusb_send_frame_intel(struct hci_dev *hdev, struct sk_buff *skb)
 		return submit_or_queue_tx_urb(hdev, urb);
 
 	case HCI_SCODATA_PKT:
-		if (hci_conn_num(hdev, SCO_LINK) < 1)
+		/* if (hci_conn_num(hdev, SCO_LINK) < 1)
 			return -ENODEV;
-
+		 */
 		urb = alloc_isoc_urb(hdev, skb);
 		if (IS_ERR(urb))
 			return PTR_ERR(urb);
@@ -2529,6 +2606,10 @@ static const struct qca_device_info qca_devices_table[] = {
 	{ 0x00000201, 28, 4, 18 }, /* Rome 2.1 */
 	{ 0x00000300, 28, 4, 18 }, /* Rome 3.0 */
 	{ 0x00000302, 28, 4, 18 }, /* Rome 3.2 */
+	{ 0x000c0100, 28, 4, 18 }, /* Naples 1.0 */
+	{ 0x000d0200, 28, 4, 18 }, /* Napier 1.0 */
+	{ 0x00120100, 40, 4, 18 }, /* Genoa 1.0 */
+	{ 0x00120200, 40, 4, 18 }, /* Genoa 2.0 */
 };
 
 static int btusb_qca_send_vendor_req(struct usb_device *udev, u8 request,
@@ -2643,7 +2724,13 @@ static int btusb_setup_qca_load_rampatch(struct hci_dev *hdev,
 	ver_rom = le32_to_cpu(ver->rom_version);
 	ver_patch = le32_to_cpu(ver->patch_version);
 
-	snprintf(fwname, sizeof(fwname), "qca/rampatch_usb_%08x.bin", ver_rom);
+	/* snprintf(fwname, sizeof(fwname),
+	 * "qca/rampatch_usb_%08x.bin", ver_rom);
+	 */
+	if (ver->rom_version == qca_devices_table[8].rom_version)
+		snprintf(fwname, sizeof(fwname), "gnbtfw10.tlv");
+	else if (ver->rom_version == qca_devices_table[9].rom_version)
+		snprintf(fwname, sizeof(fwname), "gnbtfw20.tlv");
 
 	err = request_firmware(&fw, fwname, &hdev->dev);
 	if (err) {
@@ -2662,15 +2749,17 @@ static int btusb_setup_qca_load_rampatch(struct hci_dev *hdev,
 		    "firmware rome 0x%x build 0x%x",
 		    rver_rom, rver_patch, ver_rom, ver_patch);
 
-	if (rver_rom != ver_rom || rver_patch <= ver_patch) {
-		bt_dev_err(hdev, "rampatch file version did not match with firmware");
-		err = -EINVAL;
-		goto done;
-	}
+	/* if (rver_rom != ver_rom || rver_patch <= ver_patch) {
+	 * bt_dev_err(hdev,
+	 * "rampatch file version did not match with firmware");
+	 * err = -EINVAL;
+	 * goto done;
+	 * }
+	 */
 
 	err = btusb_setup_qca_download_fw(hdev, fw, info->rampatch_hdr);
 
-done:
+//done:
 	release_firmware(fw);
 
 	return err;
@@ -2684,9 +2773,14 @@ static int btusb_setup_qca_load_nvm(struct hci_dev *hdev,
 	char fwname[64];
 	int err;
 
-	snprintf(fwname, sizeof(fwname), "qca/nvm_usb_%08x.bin",
-		 le32_to_cpu(ver->rom_version));
+	if (ver->rom_version == qca_devices_table[8].rom_version)
+		snprintf(fwname, sizeof(fwname), "gnnv10.bin");
+	else if (ver->rom_version == qca_devices_table[9].rom_version)
+		snprintf(fwname, sizeof(fwname), "gnnv20.bin");
 
+	/* snprintf(fwname, sizeof(fwname), "qca/nvm_usb_%08x.bin",
+	 * le32_to_cpu(ver->rom_version));
+	 */
 	err = request_firmware(&fw, fwname, &hdev->dev);
 	if (err) {
 		bt_dev_err(hdev, "failed to request NVM file: %s (%d)",
@@ -2727,14 +2821,17 @@ static int btusb_setup_qca(struct hci_dev *hdev)
 
 	err = btusb_qca_send_vendor_req(udev, QCA_GET_TARGET_VERSION, &ver,
 					sizeof(ver));
+	BT_INFO("%s: Got QCA_CHECK_STATUS: 0x%x: err: 0x%x",
+			hdev->name, status, err);
+
 	if (err < 0)
 		return err;
 
-	ver_rom = le32_to_cpu(ver.rom_version);
+	/* ver_rom = le32_to_cpu(ver.rom_version); */
 	/* Don't care about high ROM versions */
-	if (ver_rom & ~0xffffU)
+	/* if (ver_rom & ~0xffffU)
 		return 0;
-
+	*/
 	for (i = 0; i < ARRAY_SIZE(qca_devices_table); i++) {
 		if (ver_rom == qca_devices_table[i].rom_version)
 			info = &qca_devices_table[i];
@@ -2755,11 +2852,15 @@ static int btusb_setup_qca(struct hci_dev *hdev)
 			return err;
 	}
 
+	msleep(500);
+
 	if (!(status & QCA_SYSCFG_UPDATED)) {
 		err = btusb_setup_qca_load_nvm(hdev, &ver, info);
 		if (err < 0)
 			return err;
 	}
+
+	msleep(250);
 
 	return 0;
 }
@@ -2914,12 +3015,12 @@ static int btusb_config_oob_wake(struct hci_dev *hdev)
 }
 #endif
 
-static void btusb_check_needs_reset_resume(struct usb_interface *intf)
+/* static void btusb_check_needs_reset_resume(struct usb_interface *intf)
 {
 	if (dmi_check_system(btusb_needs_reset_resume_table))
 		interface_to_usbdev(intf)->quirks |= USB_QUIRK_RESET_RESUME;
 }
-
+ */
 static int btusb_probe(struct usb_interface *intf,
 		       const struct usb_device_id *id)
 {
@@ -2927,7 +3028,10 @@ static int btusb_probe(struct usb_interface *intf,
 	struct btusb_data *data;
 	struct hci_dev *hdev;
 	unsigned ifnum_base;
-	int i, err;
+	int i, j, err;
+	int ret;
+	struct usb_host_interface *p_host_intf;
+	struct usb_endpoint_descriptor *p_ep_desc;
 
 	BT_DBG("intf %p id %p", intf, id);
 
@@ -3042,6 +3146,7 @@ static int btusb_probe(struct usb_interface *intf,
 	hdev->flush  = btusb_flush;
 	hdev->send   = btusb_send_frame;
 	hdev->notify = btusb_notify;
+	hdev->update = btusb_update;
 
 #ifdef CONFIG_PM
 	err = btusb_config_oob_wake(hdev);
@@ -3130,8 +3235,16 @@ static int btusb_probe(struct usb_interface *intf,
 	if (id->driver_info & BTUSB_QCA_ROME) {
 		data->setup_on_usb = btusb_setup_qca;
 		hdev->set_bdaddr = btusb_set_bdaddr_ath3012;
-		set_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
-		btusb_check_needs_reset_resume(intf);
+
+		// set_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &hdev->quirks);
+		// btusb_check_needs_reset_resume(intf);
+
+		/* QCA Rome devices lose their updated firmware over suspend,
+		 * but the USB hub doesn't notice any status change.
+		 * explicitly request a device reset on resume.
+		 */
+		// interface_to_usbdev(intf)->quirks |= USB_QUIRK_RESET_RESUME;
+
 	}
 
 #ifdef CONFIG_BT_HCIBTUSB_RTL
@@ -3143,7 +3256,7 @@ static int btusb_probe(struct usb_interface *intf,
 		 * but the USB hub doesn't notice any status change.
 		 * Explicitly request a device reset on resume.
 		 */
-		interface_to_usbdev(intf)->quirks |= USB_QUIRK_RESET_RESUME;
+		// interface_to_usbdev(intf)->quirks |= USB_QUIRK_RESET_RESUME;
 	}
 #endif
 
@@ -3207,11 +3320,56 @@ static int btusb_probe(struct usb_interface *intf,
 	}
 
 	if (data->isoc) {
-		err = usb_driver_claim_interface(&btusb_driver,
+		BT_DBG("%s: usb_driver_claim_interface for isoc", __func__);
+		p_host_intf = &data->isoc->altsetting[0];
+		if (((p_host_intf->desc.bInterfaceClass ==
+		      USB_CLASS_WIRELESS_CONTROLLER) ||
+		     (p_host_intf->desc.bInterfaceClass ==
+		      USB_CLASS_VENDOR_SPEC)) &&
+		    (p_host_intf->desc.bInterfaceSubClass == 1) &&
+		    (p_host_intf->desc.bInterfaceProtocol == 1)) {
+			BT_DBG("%s: Interface 1 is VOICE\n", __func__);
+		} else {
+			BT_DBG("%s: Interface 1 is not VOICE\n", __func__);
+			data->isoc = NULL;
+			goto found_voice_done;
+		}
+
+		/* err = usb_driver_claim_interface(&btusb_driver,
 						 data->isoc, data);
 		if (err < 0)
 			goto out_free_dev;
+		 */
+		for (i = 0; i < data->isoc->num_altsetting; i++) {
+			p_host_intf = &data->isoc->altsetting[i];
+			for (j = 0; j < p_host_intf->desc.bNumEndpoints; j++) {
+				p_ep_desc = &p_host_intf->endpoint[j].desc;
+				if (usb_endpoint_type(p_ep_desc) ==
+				    USB_ENDPOINT_XFER_ISOC) {
+					if (usb_driver_claim_interface(
+						    &btusb_driver, data->isoc,
+						    data) != 0) {
+						BT_ERR("E: claim iso IF");
+						data->isoc = NULL;
+						continue;
+					}
+					BT_DBG("claimed iso interface");
+					BT_DBG("VOICE EP registered");
+					ret = usb_set_interface(
+						data->udev, ifnum_base + 1, 0);
+					if (ret) {
+						BT_ERR("E: set iso IF 0: %d",
+						       ret);
+						continue;
+					}
+					BT_INFO("VOICE endpoint IF disabled");
+					goto found_voice_done;
+				}
+			}
+		}
 	}
+found_voice_done:
+	// hci_set_drvdata(hdev, data);
 
 #ifdef CONFIG_BT_HCIBTUSB_BCM
 	if (data->diag) {

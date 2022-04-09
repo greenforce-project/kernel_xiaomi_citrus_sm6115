@@ -89,6 +89,7 @@ struct hci_ufilter {
 #define HCIBLOCKADDR	_IOW('H', 230, int)
 #define HCIUNBLOCKADDR	_IOW('H', 231, int)
 
+#define HCI_UPDATE_VOICE_CHANNEL  _IOW('H', 232, int)
 #define HCIINQUIRY	_IOR('H', 240, int)
 
 /* Ioctl requests structures */

@@ -31,6 +31,13 @@ config BT_HCIBTUSB
 	  Say Y here to compile support for Bluetooth USB devices into the
 	  kernel or say M to compile it as module (btusb).
 
+config BT_HCIUSB_SOC_QCN7605
+	bool "QCN7605 Bluetooth USB driver support"
+	depends on BT_HCIBTUSB
+	default n
+	help
+	  Say Y here to support for the QCN7605 Bluetooth USB HCI.
+
 config BT_HCIBTUSB_AUTOSUSPEND
 	bool "Enable USB autosuspend for Bluetooth USB devices by default"
 	depends on BT_HCIBTUSB

@@ -974,6 +974,7 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd,
 	void __user *argp = (void __user *)arg;
 	struct sock *sk = sock->sk;
 	int err;
+	struct hci_dev *hdev;
 
 	BT_DBG("cmd %x arg %lx", cmd, arg);
 
@@ -1008,6 +1009,13 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd,
 	release_sock(sk);
 
 	switch (cmd) {
+	case HCI_UPDATE_VOICE_CHANNEL:
+		BT_DBG("ker-usb: %s: HCI_UPDATE_VOICE_CHANNEL!!", __func__);
+		hdev = hci_dev_get(0);
+		if (!hdev)
+			return -ENOMEM;
+		return hdev->update(hdev, argp);
+
 	case HCIGETDEVLIST:
 		return hci_get_dev_list(argp);
 
