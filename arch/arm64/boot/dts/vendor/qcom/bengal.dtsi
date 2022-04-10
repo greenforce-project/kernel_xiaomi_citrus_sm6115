@@ -438,7 +438,7 @@
 	};
 
 	chosen {
-		bootargs = "rcu_nocbs=0-7 kpti=off noirqdebug quiet cgroup_disable=pressure printk.devkmsg=on";
+		bootargs = "rcu_nocbs=0-7 kpti=off noirqdebug quiet cgroup_disable=pressure";
 	};
 
 	soc: soc { };
