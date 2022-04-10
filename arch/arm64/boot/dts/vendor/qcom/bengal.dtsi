@@ -282,7 +282,6 @@
 			};
 		};
 	};
-	/delete-node/ android;
 
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
