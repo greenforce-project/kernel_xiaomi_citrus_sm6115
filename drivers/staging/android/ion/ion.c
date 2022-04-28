@@ -187,7 +187,7 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 
 	mutex_lock(&buffer->kmap_lock);
 	if (buffer->kmap_refcount) {
-		if (buffer->kmap_cnt == INT_MAX)
+		if (buffer->kmap_refcount == INT_MAX)
 			return ERR_PTR(-EOVERFLOW);
 
 		vaddr = buffer->vaddr;
