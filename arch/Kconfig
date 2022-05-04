@@ -467,7 +467,7 @@ config STACKPROTECTOR_STRONG
 	bool "Strong Stack Protector"
 	depends on STACKPROTECTOR
 	depends on $(cc-option,-fstack-protector-strong)
-	default y
+	default n
 	help
 	  Functions will have the stack-protector canary logic added in any
 	  of the following conditions:
