@@ -316,7 +316,6 @@ static void dsi_bridge_disable(struct drm_bridge *bridge)
 
 		sde_connector_helper_bridge_disable(display->drm_conn);
 	}
-
 	panel_init_judge = false;
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {

@@ -366,7 +366,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 	int rc = 0;
 	struct dsi_panel_reset_config *r_config = &panel->reset_config;
 	int i;
-
+	
 	printk("kook: dsi_panel_reset\n");
 	printk("%d %s chenwenmin r_config->reset_gpio=%d\n", __LINE__, __func__, r_config->reset_gpio);
 	//return 0;
@@ -672,7 +672,6 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 	return rc;
 }
-
 /*
 static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
@@ -729,12 +728,10 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
-
 	if(bl_lvl > 0)
 		backlight_val = true;
 	else
 		backlight_val = false;
-	
 	if (panel->host_config.ext_bridge_mode)
 		return 0;
 

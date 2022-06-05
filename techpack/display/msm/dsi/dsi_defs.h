@@ -281,10 +281,6 @@ enum dsi_dyn_clk_feature_type {
  * @DSI_CMD_SET_POST_TIMING_SWITCH:        Post timing switch
  * @DSI_CMD_SET_QSYNC_ON                   Enable qsync mode
  * @DSI_CMD_SET_QSYNC_OFF                  Disable qsync mode
- * @DSI_CMD_SET_CABC_ON
- * @DSI_CMD_SET_CABC_OFF
- * @DSI_CMD_SET_CABC_MOVIE_ON
- * @DSI_CMD_SET_CABC_STILL_ON
  * @DSI_CMD_SET_MAX
  */
 enum dsi_cmd_set_type {
