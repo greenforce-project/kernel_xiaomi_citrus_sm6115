@@ -158,7 +158,7 @@
 	rf-pa1-therm-usr {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
-		thermal-governor = "user_space";
+		thermal-governor = "step_wise";
 		thermal-sensors = <&pm6125_adc_tm ADC_GPIO4_PU2>;
 		wake-capable-sensor;
 		trips {
