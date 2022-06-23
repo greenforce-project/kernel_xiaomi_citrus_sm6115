@@ -1,14 +1,3 @@
-ifeq ($(CONFIG_ARCH_BENGAL),y)
-ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-	dtbo-y += \
-		bengal-idp-overlay.dtbo
-
-bengal-idp-overlay.dtbo-base := bengal.dtb
-else
-dtb-y += \
-	bengal-idp.dtb
-endif
-else
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
         dtbo-$(CONFIG_ARCH_KONA) += \
                 kona-cdp-overlay.dtbo \
@@ -195,7 +184,6 @@ dtb-$(CONFIG_ARCH_SCUBA) += scuba-rumi.dtb \
 	scubap-iot-idp-2gb.dtb \
 	scuba-iot-idp-2gb.dtb \
 	scuba-iot-idp-usbc-2gb.dtb
-endif
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
