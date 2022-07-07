@@ -477,7 +477,9 @@ static int32_t scm_get_congestion_pct(struct scan_cache_entry *entry)
 		 */
 		congestion = SCM_MAX_CHANNEL_UTILIZATION -
 					est_air_time_percentage;
-	} else if (entry->qbss_chan_load) {
+		if (!congestion)
+			congestion = 1;
+	} else if (util_scan_entry_qbssload(entry)) {
 		ap_load = (entry->qbss_chan_load * BEST_CANDIDATE_MAX_WEIGHT);
 		/*
 		 * Calculate ap_load in % from qbss channel load from
