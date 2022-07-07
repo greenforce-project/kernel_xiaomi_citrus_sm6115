@@ -704,6 +704,9 @@ typedef struct tagPmkidCacheInfo {
 	uint8_t ssid[WLAN_SSID_MAX_LEN];
 	uint8_t cache_id[CACHE_ID_LEN];
 	struct mobility_domain_info mdid;
+#if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
+	bool single_pmk_supported;
+#endif
 } tPmkidCacheInfo;
 
 #ifdef FEATURE_WLAN_WAPI
@@ -826,6 +829,7 @@ struct csr_roam_profile {
 	tSirMacRateSet  extended_rates;
 	struct qdf_mac_addr bssid_hint;
 	bool force_24ghz_in_ht20;
+	bool require_h2e;
 	uint32_t cac_duration_ms;
 	uint32_t dfs_regdomain;
 #ifdef WLAN_FEATURE_FILS_SK

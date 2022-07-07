@@ -54,6 +54,11 @@ void pkt_capture_mon(struct pkt_capture_cb_context *cb_ctx,
 				wlan_objmgr_pdev_get_pdev_id(pdev), chan_num);
 	}
 
+	if (!cb_ctx || !cb_ctx->mon_cb || !cb_ctx->mon_ctx) {
+		pkt_capture_err("Monitor interface is deleted now");
+		qdf_nbuf_free(msdu);
+	}
+
 	if (cb_ctx->mon_cb(cb_ctx->mon_ctx, msdu) != QDF_STATUS_SUCCESS) {
 		pkt_capture_err("Frame Rx to HDD failed");
 		qdf_nbuf_free(msdu);
