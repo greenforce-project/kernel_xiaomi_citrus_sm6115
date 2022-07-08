@@ -70,14 +70,14 @@ if ANDROID_SIMPLE_LMK
 config ANDROID_SIMPLE_LMK_MINFREE
 	int "Minimum MiB of memory to free per reclaim"
 	range 8 512
-	default 128
+	default 64
 	help
 	  Simple LMK will try to free at least this much memory per reclaim.
 
 config ANDROID_SIMPLE_LMK_TIMEOUT_MSEC
 	int "Reclaim timeout in milliseconds"
 	range 50 1000
-	default 200
+	default 350
 	help
 	  Simple LMK tries to wait until all of the victims it kills have their
 	  memory freed; however, sometimes victims can take a while to die,
