@@ -154,8 +154,9 @@
 
 &dsi_td4330_truly_v2_video {
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
-	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0A
-										06 01 00 01 00 00 01 0D];
+	qcom,mdss-dsi-panel-status-command =
+		[06 01 00 01 00 00 01 0A
+		06 01 00 01 00 00 01 0D];
 	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 	qcom,mdss-dsi-panel-status-value = <0x9C>,<0x00>;
 	qcom,mdss-dsi-panel-status-read-length = <1 1>;
@@ -164,13 +165,13 @@
 	qcom,mdss-dsi-t-clk-pre = <0x37>;
 	qcom,mdss-dsi-panel-framerate = <60>;
 	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
-				"src_byte_clk0", "src_pixel_clk0",
-				"shadow_byte_clk0", "shadow_pixel_clk0";
+				 "src_byte_clk0", "src_pixel_clk0",
+				 "shadow_byte_clk0", "shadow_pixel_clk0";
 	qcom,dsi-dyn-clk-list =
 		<976190400 988392784 984325320 980257864>;
 	qcom,dsi-dyn-clk-type = "constant-fps-adjust-vfp";
 	qcom,mdss-dsi-display-timings {
-		timing@0{
+		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings =
 				[26 20 09 0A 06 02 04 a0
 				26 20 09 0A 06 02 04 a0
@@ -186,10 +187,11 @@
 
 &dsi_ft8719_truly_v2_video {
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
-	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0A
-										06 01 00 01 00 00 01 0D
-										06 01 00 01 00 00 01 AC
-										06 01 00 01 00 00 01 0E];
+	qcom,mdss-dsi-panel-status-command =
+		[06 01 00 01 00 00 01 0A
+		06 01 00 01 00 00 01 0D
+		06 01 00 01 00 00 01 AC
+		06 01 00 01 00 00 01 0E];
 	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 	qcom,mdss-dsi-panel-status-value = <0x9C>,<0x00>,<0x20>,<0x80>;
 	qcom,mdss-dsi-panel-status-read-length = <1 1 1 1>;
@@ -198,14 +200,13 @@
 	qcom,mdss-dsi-t-clk-pre = <0x35>;
 	qcom,mdss-dsi-panel-framerate = <60>;
 	qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
-				"src_byte_clk0", "src_pixel_clk0",
-				"shadow_byte_clk0", "shadow_pixel_clk0";
-	//qcom,dsi-dyn-clk-enable;
+				 "src_byte_clk0", "src_pixel_clk0",
+				 "shadow_byte_clk0", "shadow_pixel_clk0";
 	qcom,dsi-dyn-clk-list =
 		<976190400 988392784 984325320 980257864>;
 	qcom,dsi-dyn-clk-type = "constant-fps-adjust-vfp";
 	qcom,mdss-dsi-display-timings {
-		timing@0{
+		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings =
 				[26 20 09 0A 06 02 04 a0
 				26 20 09 0A 06 02 04 a0
@@ -217,24 +218,25 @@
 		};
 	};
 };
+
 //chenwenmin
 &dsi_nt36672a_tianma_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	//qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
- 	//qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
- 	//pwms = <&pm6125_pwm 0 0>;
- 	qcom,bl-pmic-pwm-period-usecs = <100>;
+	//qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	//pwms = <&pm6125_pwm 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	//qcom,platform-reset-gpio = <85>;
 	//qcom,platform-reset-gpio = <&tlmm 85 0>;
 	//qcom,platform-bklight-en-gpio = <&tlmm 99 0>;
- 	//qcom,platform-bklight-en-gpio = <&pm6125_pwm 99 0>;
+	//qcom,platform-bklight-en-gpio = <&pm6125_pwm 99 0>;
 	//qcom,platform-te-gpio = <&tlmm 95 0>;
 	qcom,mdss-dsi-t-clk-post = <0x0F>;
 	qcom,mdss-dsi-t-clk-pre = <0x37>;
 	qcom,mdss-dsi-display-timings {
-		timing@0{
+		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings =
 				[26 21 09 0B 06 02 04 a0
 				26 21 09 0B 06 02 04 a0
@@ -248,6 +250,7 @@
 	};
 };
 
+/*
 &dsi_nt36525_truly_video {
 	qcom,mdss-dsi-t-clk-post = <0x0a>;
 	qcom,mdss-dsi-t-clk-pre = <0x21>;
@@ -307,3 +310,4 @@
 		};
 	};
 };
+*/

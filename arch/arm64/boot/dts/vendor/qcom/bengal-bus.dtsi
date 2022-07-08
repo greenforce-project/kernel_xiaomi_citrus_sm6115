@@ -15,8 +15,7 @@
 				"qup_virt-base", "fab-gpu_vert-base",
 				"mmnrt_virt-base", "mmrt_virt-base";
 
-		/*Buses*/
-
+		/* Buses */
 		fab_bimc: fab-bimc {
 			cell-id = <MSM_BUS_FAB_BIMC>;
 			label = "fab-bimc";
@@ -103,8 +102,7 @@
 				<&rpmcc MDP_MMRT_MSMBUS_A_CLK>;
 		};
 
-		/*Masters*/
-
+		/* Masters */
 		mas_apps_proc: mas-apps-proc {
 			cell-id = <MSM_BUS_MASTER_AMPSS_M0>;
 			label = "mas-apps-proc";
