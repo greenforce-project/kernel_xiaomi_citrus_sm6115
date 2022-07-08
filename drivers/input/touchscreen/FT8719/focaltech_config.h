@@ -183,7 +183,7 @@
  * Report Pressure in multitouch
  * 1:enable(default),0:disable
 */
-#define FTS_REPORT_PRESSURE_EN				  0
+#define FTS_REPORT_PRESSURE_EN				  1
 
 /*
  * Gesture function enable
