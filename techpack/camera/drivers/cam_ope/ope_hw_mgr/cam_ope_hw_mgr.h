@@ -51,7 +51,7 @@
 #define OPE_CMDS                  OPE_MAX_CMD_BUFS
 #define CAM_MAX_IN_RES            8
 
-#define OPE_MAX_CDM_BLS           32
+#define OPE_MAX_CDM_BLS           16
 
 #define CAM_OPE_MAX_PER_PATH_VOTES 6
 #define CAM_OPE_BW_CONFIG_UNKNOWN  0

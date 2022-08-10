@@ -572,9 +572,9 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = BTN_1,
+	.key_code[2] = BTN_2,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -2879,6 +2879,104 @@ static int msm_bt_sample_rate_tx_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+extern unsigned char aw87359_audio_dspk(void);
+extern unsigned char aw87359_audio_abrcv(void);
+extern unsigned char aw87359_audio_off(void);
+static int aw87359_spk_control = 0;
+static int aw87359_rcv_control = 0;
+static const char *const ext_top_speaker_amp_function[] = { "Off", "On" };
+static const char *const ext_receiver_amp_function[] = { "Off", "On" };
+static int ext_top_speaker_amp_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = aw87359_spk_control;
+	pr_debug("%s: aw87359_spk_control = %d\n", __func__,
+		aw87359_spk_control);
+	return 0;
+}
+
+static int ext_top_speaker_amp_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	if(ucontrol->value.integer.value[0] == aw87359_spk_control){
+		return 1;
+	}
+	aw87359_spk_control = ucontrol->value.integer.value[0];
+	if(ucontrol->value.integer.value[0]) {
+		aw87359_audio_dspk();
+	} else {
+		aw87359_audio_off();
+	}
+	pr_debug("%s: value.integer.value = %d\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+	}
+
+static int ext_receiver_amp_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = aw87359_rcv_control;
+	pr_debug("%s: aw87359_rcv_control = %d\n", __func__,
+		aw87359_rcv_control);
+	return 0;
+}
+
+static int ext_receiver_amp_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	if(ucontrol->value.integer.value[0] == aw87359_rcv_control){
+		return 1;
+	}
+	aw87359_rcv_control = ucontrol->value.integer.value[0];
+	if(ucontrol->value.integer.value[0]) {
+		aw87359_audio_abrcv();
+	} else {
+		aw87359_audio_off();
+	}
+	pr_debug("%s: value.integer.value = %d\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+extern unsigned char aw87519_audio_kspk(void);
+extern unsigned char aw87519_audio_off(void);
+static int aw87519_spk_control = 0;
+static const char *const ext_bottom_speaker_amp_function[] = { "Off", "On" };
+static int ext_bottom_speaker_amp_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = aw87519_spk_control;
+	pr_debug("%s: aw87519_spk_control = %d\n", __func__,
+		aw87519_spk_control);
+	return 0;
+}
+
+static int ext_bottom_speaker_amp_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	if(ucontrol->value.integer.value[0] == aw87519_spk_control){
+		return 1;
+	}
+	aw87519_spk_control = ucontrol->value.integer.value[0];
+	if(ucontrol->value.integer.value[0]) {
+		aw87519_audio_kspk();
+	} else {
+		aw87519_audio_off();
+	}
+	pr_debug("%s: value.integer.value = %d\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static const struct soc_enum msm_snd_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_top_speaker_amp_function),
+				ext_top_speaker_amp_function),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_receiver_amp_function),
+				ext_receiver_amp_function),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_bottom_speaker_amp_function),
+				ext_bottom_speaker_amp_function),
+};
+
 static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 	SOC_ENUM_EXT("RX_CDC_DMA_RX_0 Channels", rx_cdc_dma_rx_0_chs,
 			cdc_dma_rx_ch_get, cdc_dma_rx_ch_put),
@@ -2912,6 +3010,12 @@ static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 			cdc_dma_rx_format_get, cdc_dma_rx_format_put),
 	SOC_ENUM_EXT("RX_CDC_DMA_RX_5 Format", rx_cdc_dma_rx_5_format,
 			cdc_dma_rx_format_get, cdc_dma_rx_format_put),
+	SOC_ENUM_EXT("Ext_TOP_Speaker_Amp", msm_snd_enum[0],
+			ext_top_speaker_amp_get, ext_top_speaker_amp_put),
+	SOC_ENUM_EXT("Ext_Receiver_Amp", msm_snd_enum[1],
+			ext_receiver_amp_get, ext_receiver_amp_put),
+	SOC_ENUM_EXT("Ext_BOTTOM_Speaker_Amp", msm_snd_enum[2],
+			ext_bottom_speaker_amp_get, ext_bottom_speaker_amp_put),
 	SOC_ENUM_EXT("TX_CDC_DMA_TX_0 Format", tx_cdc_dma_tx_0_format,
 			cdc_dma_tx_format_get, cdc_dma_tx_format_put),
 	SOC_ENUM_EXT("TX_CDC_DMA_TX_3 Format", tx_cdc_dma_tx_3_format,
@@ -4390,8 +4494,8 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-	btn_high[1] = 150;
-	btn_high[2] = 237;
+	btn_high[1] = 225;
+	btn_high[2] = 450;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
 	btn_high[5] = 500;
