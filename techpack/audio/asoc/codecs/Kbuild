@@ -171,6 +171,15 @@ ifdef CONFIG_SND_SOC_BENGAL
 	WSA881X_ANALOG_OBJS += wsa881x-temp-sensor.o
 endif
 endif
+
+ifdef CONFIG_SND_SOC_AW87359
+	AW87359_OBJS += aw87359_audio.o
+endif
+
+ifdef CONFIG_SND_SOC_AW87519
+	AW87519_OBJS += aw87519_audio.o
+endif
+
 ifdef CONFIG_SND_SOC_MSM_STUB
 	STUB_OBJS += msm_stub.o
 endif
@@ -282,3 +291,9 @@ mbhc_dlkm-y := $(MBHC_OBJS)
 
 obj-$(CONFIG_SND_SOC_MSM_HDMI_CODEC_RX) += hdmi_dlkm.o
 hdmi_dlkm-y := $(HDMICODEC_OBJS)
+
+obj-$(CONFIG_SND_SOC_AW87359) += aw87359_audio_dlkm.o
+aw87359_audio_dlkm-y := $(AW87359_OBJS)
+
+obj-$(CONFIG_SND_SOC_AW87519) += aw87519_audio_dlkm.o
+aw87519_audio_dlkm-y := $(AW87519_OBJS)
