@@ -245,7 +245,7 @@
 
 &qupv3_se1_i2c {
 	wsa881x_i2c_e: wsa881x-i2c-codec@e {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,wsa881x-i2c-codec";
 		reg = <0x0e>;
 		clock-names = "wsa_mclk";
@@ -319,7 +319,7 @@
 	};
 
 	wsa881x_analog_reset_gpio: msm_cdc_pinctrl@106 {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
