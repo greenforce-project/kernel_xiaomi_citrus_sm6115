@@ -24,10 +24,6 @@ fi
 # Do not expand names
 set -f
 
-# Fix the language to get consistent output
-LC_ALL=C
-export LC_ALL
-
 if [ -z "$KBUILD_BUILD_VERSION" ]; then
 	VERSION=$(cat .version 2>/dev/null || echo 1)
 else
@@ -74,8 +70,8 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   echo \#define LINUX_COMPILE_HOST \"`echo $LINUX_COMPILE_HOST | $UTS_TRUNCATE`\"
 
   CC_VERSION=$($CC -v 2>&1 | grep ' version ' | sed 's/[[:space:]]*$//')
-  LD_VERSION=$($LD -v | head -n1 | sed 's/(compatible with [^)]*)//' \
-		      | sed 's/[[:space:]]*$//')
+  LD_VERSION=$(LC_ALL=C $LD -v | head -n1 |
+		sed -e 's/(compatible with [^)]*)//' -e 's/[[:space:]]*$//')
   printf '#define LINUX_COMPILER "%s"\n' "$CC_VERSION, $LD_VERSION"
 ) > .tmpcompile
 
