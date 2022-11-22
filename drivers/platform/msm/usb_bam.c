@@ -25,7 +25,7 @@
 #define TIME_BUF_LEN  17
 #define DBG_EVENT_LEN  143
 
-#define ENABLE_EVENT_LOG 1
+#define ENABLE_EVENT_LOG 0
 
 #define USB_BAM_NR_PORTS	4
 
