@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_TFE_CSID_HW_H_
@@ -9,7 +9,6 @@
 #include "cam_hw.h"
 #include "cam_tfe_csid_hw_intf.h"
 #include "cam_tfe_csid_soc.h"
-#include "cam_csid_ppi_core.h"
 
 #define CAM_TFE_CSID_CID_MAX                          4
 
@@ -185,7 +184,6 @@ struct cam_tfe_csid_csi2_rx_reg_offset {
 	uint32_t csid_csi2_rx_total_crc_err_addr;
 
 	/*configurations */
-	uint32_t phy_sel_base;
 	uint32_t csi2_rst_srb_all;
 	uint32_t csi2_rst_done_shift_val;
 	uint32_t csi2_irq_mask_all;
@@ -409,9 +407,6 @@ struct cam_csid_evt_payload {
  * @event_cb_priv:            Context data
  * @prev_boot_timestamp       previous frame bootime stamp
  * @prev_qtimer_ts            previous frame qtimer csid timestamp
- * @ppi_hw_intf               interface to ppi hardware
- * @ppi_enabled               flag to specify if the hardware has ppi bridge
- *                            or not
  *
  */
 struct cam_tfe_csid_hw {
@@ -444,8 +439,6 @@ struct cam_tfe_csid_hw {
 	void                               *event_cb_priv;
 	uint64_t                            prev_boot_timestamp;
 	uint64_t                            prev_qtimer_ts;
-	struct cam_hw_intf                 *ppi_hw_intf[CAM_CSID_PPI_HW_MAX];
-	bool                                ppi_enable;
 };
 
 int cam_tfe_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
