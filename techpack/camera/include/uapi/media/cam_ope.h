@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_OPE_H__
@@ -74,7 +73,7 @@
 #define OPE_MAX_IO_BUFS                     (OPE_OUT_RES_MAX + OPE_IN_RES_MAX)
 #define OPE_MAX_PASS                        1
 #define OPE_MAX_PLANES                      2
-#define OPE_MAX_STRIPES                     64
+#define OPE_MAX_STRIPES                     48
 #define OPE_MAX_BATCH_SIZE                  16
 
 /**
@@ -105,7 +104,7 @@ struct ope_stripe_info {
  * @direction:     Direction of a buffer of a port(Input/Output)
  * @resource_type: Port type
  * @num_planes:    Number of planes for a port
- * @pix_pattern:   Pixel pattern for raw input
+ * @reserved:      Reserved
  * @num_stripes:   Stripes per plane
  * @mem_handle:    Memhandles of each Input/Output Port
  * @plane_offset:  Offsets of planes
@@ -121,7 +120,7 @@ struct ope_io_buf_info {
 	uint32_t direction;
 	uint32_t resource_type;
 	uint32_t num_planes;
-	uint32_t pix_pattern;
+	uint32_t reserved;
 	uint32_t num_stripes[OPE_MAX_PLANES];
 	uint32_t mem_handle[OPE_MAX_PLANES];
 	uint32_t plane_offset[OPE_MAX_PLANES];
