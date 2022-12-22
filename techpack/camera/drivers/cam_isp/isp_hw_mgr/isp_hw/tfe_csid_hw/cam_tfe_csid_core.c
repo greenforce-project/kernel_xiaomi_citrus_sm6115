@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -10,7 +10,6 @@
 #include <media/cam_req_mgr.h>
 
 #include "cam_tfe_csid_core.h"
-#include "cam_csid_ppi_core.h"
 #include "cam_isp_hw.h"
 #include "cam_soc_util.h"
 #include "cam_io_util.h"
@@ -739,8 +738,6 @@ static int cam_tfe_csid_enable_csi2(
 {
 	const struct cam_tfe_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info                     *soc_info;
-	struct cam_csid_ppi_cfg                     ppi_lane_cfg;
-	uint32_t ppi_index = 0, rc;
 	uint32_t val = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -804,30 +801,6 @@ static int cam_tfe_csid_enable_csi2(
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
-	/*
-	 * There is one to one mapping for ppi index with phy index
-	 * we do not always update phy sel equal to phy number,for some
-	 * targets "phy_sel = phy_num + 1", and for some targets it is
-	 * "phy_sel = phy_num", ppi_index should be updated accordingly
-	 */
-	ppi_index = csid_hw->csi2_rx_cfg.phy_sel -
-		csid_reg->csi2_reg->phy_sel_base;
-
-	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
-		ppi_lane_cfg.lane_type = csid_hw->csi2_rx_cfg.lane_type;
-		ppi_lane_cfg.lane_num  = csid_hw->csi2_rx_cfg.lane_num;
-		ppi_lane_cfg.lane_cfg  = csid_hw->csi2_rx_cfg.lane_cfg;
-
-		CAM_DBG(CAM_ISP, "ppi_index to init %d", ppi_index);
-		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.init(
-			csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
-			&ppi_lane_cfg,
-			sizeof(struct cam_csid_ppi_cfg));
-		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "PPI:%d Init Failed", ppi_index);
-			return rc;
-		}
-	}
 
 	return 0;
 }
@@ -837,7 +810,6 @@ static int cam_tfe_csid_disable_csi2(
 {
 	const struct cam_tfe_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
-	uint32_t ppi_index = 0, rc;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -853,20 +825,6 @@ static int cam_tfe_csid_disable_csi2(
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
-
-	ppi_index = csid_hw->csi2_rx_cfg.phy_sel -
-		csid_reg->csi2_reg->phy_sel_base;
-	if (csid_hw->ppi_hw_intf[ppi_index] && csid_hw->ppi_enable) {
-		/* De-Initialize the PPI bridge */
-		CAM_DBG(CAM_ISP, "ppi_index to de-init %d\n", ppi_index);
-		rc = csid_hw->ppi_hw_intf[ppi_index]->hw_ops.deinit(
-			csid_hw->ppi_hw_intf[ppi_index]->hw_priv,
-			NULL, 0);
-		if (rc < 0) {
-			CAM_ERR(CAM_ISP, "PPI:%d De-Init Failed", ppi_index);
-			return rc;
-		}
-	}
 
 	return 0;
 }
@@ -2742,14 +2700,12 @@ irqreturn_t cam_tfe_csid_irq(int irq_num, void *data)
 	unsigned long flags;
 	uint32_t i, val;
 
+	csid_hw = (struct cam_tfe_csid_hw *)data;
 
 	if (!data) {
 		CAM_ERR(CAM_ISP, "CSID: Invalid arguments");
 		return IRQ_HANDLED;
 	}
-
-	csid_hw = (struct cam_tfe_csid_hw *)data;
-	CAM_DBG(CAM_ISP, "CSID %d IRQ Handling", csid_hw->hw_intf->hw_idx);
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -3250,24 +3206,6 @@ int cam_tfe_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	tfe_csid_hw->csid_debug = 0;
 	tfe_csid_hw->error_irq_count = 0;
 	tfe_csid_hw->prev_boot_timestamp = 0;
-
-	/* Check if ppi bridge is present or not? */
-	tfe_csid_hw->ppi_enable = of_property_read_bool(
-		csid_hw_info->soc_info.pdev->dev.of_node,
-		"ppi-enable");
-
-	if (!tfe_csid_hw->ppi_enable)
-		return 0;
-
-	/* Initialize the PPI bridge */
-	for (i = 0; i < CAM_CSID_PPI_HW_MAX; i++) {
-		rc = cam_csid_ppi_hw_init(&tfe_csid_hw->ppi_hw_intf[i], i);
-		if (rc < 0) {
-			CAM_INFO(CAM_ISP, "PPI init failed for PPI %d", i);
-			rc = 0;
-			break;
-		}
-	}
 
 	return 0;
 err:
