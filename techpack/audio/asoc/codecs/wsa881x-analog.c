@@ -523,7 +523,7 @@ static int wsa881x_visense_adc_ctrl(struct snd_soc_component *component,
 
 	pr_debug("%s: enable:%d\n", __func__, enable);
 	if (enable) {
-		if (!WSA881X_IS_2_0(wsa881x->version))
+		if (!WSA881X_IS_2_0(wsa881x->version)) {
 			snd_soc_component_update_bits(component,
 					WSA881X_ADC_SEL_IBIAS,
 					0x70, 0x40);
@@ -534,6 +534,7 @@ static int wsa881x_visense_adc_ctrl(struct snd_soc_component *component,
 					WSA881X_ADC_EN_MODU_V, 0x80, 0x80);
 			snd_soc_component_update_bits(component,
 					WSA881X_ADC_EN_MODU_I, 0x80, 0x80);
+		}
 	} else {
 		/* Ensure: Speaker Protection has been stopped */
 		snd_soc_component_update_bits(component,
