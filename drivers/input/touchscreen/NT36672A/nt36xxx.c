@@ -27,15 +27,13 @@
 #include <linux/of_irq.h>
 #include <linux/spi/spi-geni-qcom.h>
 
-#if defined(CONFIG_FB)
-#ifdef CONFIG_DRM
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #include <drm/drm_panel.h>
-#endif
-#include <linux/notifier.h>
-#include <linux/fb.h>
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
+#include <linux/notifier.h>
+#include <linux/fb.h>
 
 #include "nt36xxx.h"
 #if NVT_TOUCH_ESD_PROTECT
@@ -85,7 +83,7 @@ extern void Boot_Update_Firmware(struct work_struct *work);
 
 static void nvt_resume_work(struct work_struct *work);
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 static struct drm_panel *active_panel;
 static int check_dt(struct device_node *np);
@@ -2058,7 +2056,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	}
 #endif
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 	ts->drm_notif.notifier_call = nvt_drm_notifier_callback;
 	//ret = msm_drm_register_client(&ts->drm_notif);
@@ -2126,7 +2124,7 @@ err_enable_regulator:
 err_get_regulator:
 #endif
 err_alloc_event_wq_failed:
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 	NVT_LOG("chenwenmin  \n");
 	if (active_panel) {
@@ -2229,7 +2227,7 @@ static int32_t nvt_ts_remove(struct spi_device *client)
 		ts->event_wq = NULL;
 	}
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 	NVT_LOG("chenwenmin  \n");
 	if (active_panel) {
@@ -2310,7 +2308,7 @@ static void nvt_ts_shutdown(struct spi_device *client)
 
 	nvt_irq_enable(false);
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 	NVT_LOG("chenwenmin  \n");
 	if (active_panel) {
@@ -2501,7 +2499,7 @@ static void nvt_resume_work(struct work_struct *work)
 	nvt_ts_resume(&ts->client->dev);
 }
 
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 
 static int check_dt(struct device_node *np)

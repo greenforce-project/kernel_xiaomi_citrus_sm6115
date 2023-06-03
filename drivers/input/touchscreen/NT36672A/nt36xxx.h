@@ -116,7 +116,7 @@ struct nvt_ts_data {
 	struct delayed_work nvt_fwu_work;
 	uint16_t addr;
 	int8_t phys[32];
-#if defined(CONFIG_FB)
+#if defined(CONFIG_FB) || defined(CONFIG_DRM)
 #ifdef __DRM_PANEL_H__
 	struct notifier_block drm_notif;
 #else
