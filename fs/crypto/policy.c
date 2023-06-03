@@ -95,6 +95,20 @@ static bool supported_iv_ino_lblk_policy(const struct fscrypt_policy_v2 *policy,
 	int ino_bits = 64, lblk_bits = 64;
 
 	/*
+	 * IV_INO_LBLK_* exist only because of hardware limitations, and
+	 * currently the only known use case for them involves AES-256-XTS.
+	 * That's also all we test currently.  For these reasons, for now only
+	 * allow AES-256-XTS here.  This can be relaxed later if a use case for
+	 * IV_INO_LBLK_* with other encryption modes arises.
+	 */
+	if (policy->contents_encryption_mode != FSCRYPT_MODE_AES_256_XTS) {
+		fscrypt_warn(inode,
+			     "Can't use %s policy with contents mode other than AES-256-XTS",
+			     type);
+		return false;
+	}
+
+	/*
 	 * It's unsafe to include inode numbers in the IVs if the filesystem can
 	 * potentially renumber inodes, e.g. via filesystem shrinking.
 	 */
@@ -196,10 +210,15 @@ static bool fscrypt_supported_v2_policy(const struct fscrypt_policy_v2 *policy,
 					  32, 32))
 		return false;
 
+	/*
+	 * IV_INO_LBLK_32 hashes the inode number, so in principle it can
+	 * support any ino_bits.  However, currently the inode number is gotten
+	 * from inode::i_ino which is 'unsigned long'.  So for now the
+	 * implementation limit is 32 bits.
+	 */
 	if ((policy->flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) &&
-	    /* This uses hashed inode numbers, so ino_bits doesn't matter. */
 	    !supported_iv_ino_lblk_policy(policy, inode, "IV_INO_LBLK_32",
-					  INT_MAX, 32))
+					  32, 32))
 		return false;
 
 	if (memchr_inv(policy->__reserved, 0, sizeof(policy->__reserved))) {
@@ -626,12 +645,13 @@ EXPORT_SYMBOL(fscrypt_has_permitted_context);
 
 #define SDHCI "sdhci"
 
-static int fscrypt_update_context(union fscrypt_context *ctx)
+static int fscrypt_update_context(union fscrypt_context *ctx,
+						const char *file_system_type)
 {
 	char *boot = "ufs";
 
 	if (!fscrypt_find_storage_type(&boot)) {
-		if (!strcmp(boot, SDHCI))
+		if (!strcmp(boot, SDHCI) && !strcmp(file_system_type, "f2fs"))
 			ctx->v1.flags |= FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
 			return 0;
 	}
@@ -654,6 +674,7 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	int ctxsize;
 	struct fscrypt_info *ci;
 	int res;
+	const char *file_system_type;
 
 	res = fscrypt_get_encryption_info(parent);
 	if (res < 0)
@@ -663,10 +684,14 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	if (ci == NULL)
 		return -ENOKEY;
 
+	file_system_type = ci->ci_inode->i_sb->s_type->name;
+	if (!file_system_type)
+		return -EINVAL;
+
 	ctxsize = fscrypt_new_context_from_policy(&ctx, &ci->ci_policy);
 	if (fscrypt_policy_contents_mode(&ci->ci_policy) ==
 	    FSCRYPT_MODE_PRIVATE) {
-		res = fscrypt_update_context(&ctx);
+		res = fscrypt_update_context(&ctx, file_system_type);
 		if (res)
 			return res;
 	}

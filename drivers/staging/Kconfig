@@ -114,8 +114,6 @@ source "drivers/staging/mt7621-spi/Kconfig"
 
 source "drivers/staging/mt7621-dma/Kconfig"
 
-source "drivers/staging/mt7621-mmc/Kconfig"
-
 source "drivers/staging/mt7621-eth/Kconfig"
 
 source "drivers/staging/mt7621-dts/Kconfig"
@@ -125,5 +123,7 @@ source "drivers/staging/gasket/Kconfig"
 source "drivers/staging/axis-fifo/Kconfig"
 
 source "drivers/staging/erofs/Kconfig"
+
+source "drivers/staging/qcacld-3.0/Kconfig"
 
 endif # STAGING
