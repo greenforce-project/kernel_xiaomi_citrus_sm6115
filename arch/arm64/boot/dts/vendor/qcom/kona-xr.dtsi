@@ -7,7 +7,6 @@
 #include "kona-audio-overlay.dtsi"
 #include "kona-thermal-overlay.dtsi"
 #include "kona-xr-pinctrl-overlay.dtsi"
-#include "camera/kona-camera-sensor-xr.dtsi"
 
 &tlmm {
 	spkr_1_sd_n {
@@ -686,7 +685,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	status = "disabled";
+	status = "ok";
 
 	st_fts@49 {
 		status = "disabled";
