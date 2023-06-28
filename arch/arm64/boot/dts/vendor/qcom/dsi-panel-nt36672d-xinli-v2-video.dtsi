@@ -57,7 +57,7 @@
 		qcom,bl-pmic-pwm-period-usecs = <0x64>;
 		qcom,mdss-dsi-bl-min-level = <0x01>;
 		qcom,mdss-dsi-bl-max-level = <0xfff>;
-		qcom,mdss-brightness-max-level = <0xfff>;
+		qcom,mdss-brightness-max-level = <0x0ff>;
 		qcom,platform-reset-gpio = <&tlmm 0x55 0x0>;
 		qcom,platform-bklight-en-gpio = <&tlmm 0x63 0x0>;
 
