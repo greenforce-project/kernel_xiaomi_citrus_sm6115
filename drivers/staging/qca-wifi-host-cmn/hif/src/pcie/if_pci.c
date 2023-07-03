@@ -1019,9 +1019,9 @@ static int hif_pci_pm_runtime_debugfs_show(struct seq_file *s, void *data)
 
 	seq_printf(s, "%30s: %s\n", "Runtime PM state",
 		   autopm_state[pm_state]);
-	seq_printf(s, "%30s: %pf\n", "Last Resume Caller",
+	seq_printf(s, "%30s: %ps\n", "Last Resume Caller",
 		   sc->pm_stats.last_resume_caller);
-	seq_printf(s, "%30s: %pf\n", "Last Busy Marker",
+	seq_printf(s, "%30s: %ps\n", "Last Busy Marker",
 		   sc->pm_stats.last_busy_marker);
 
 	usecs_age = qdf_get_log_timestamp_usecs() -

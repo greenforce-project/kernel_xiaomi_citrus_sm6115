@@ -1131,7 +1131,7 @@ static void idt_get_fw_data(struct idt_89hpesx_dev *pdev)
 		if (ee_id)
 			break;
 
-		dev_warn(dev, "Skip unsupported EEPROM device %pfw\n", fwnode);
+		dev_warn(dev, "Skip unsupported EEPROM device %psw\n", fwnode);
 	}
 
 	/* If there is no fwnode EEPROM device, then set zero size */

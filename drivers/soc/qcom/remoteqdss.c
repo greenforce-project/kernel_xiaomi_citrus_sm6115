@@ -25,7 +25,7 @@ static struct dentry *remoteqdss_dir;
 	pr_debug("%s: " fmt, __func__, ## __VA_ARGS__)
 
 #define REMOTEQDSS_ERR_CALLER(fmt, caller, ...) \
-	pr_debug("%pf: " fmt, caller, ## __VA_ARGS__)
+	pr_debug("%ps: " fmt, caller, ## __VA_ARGS__)
 
 struct qdss_msg_translation {
 	u64 val;
