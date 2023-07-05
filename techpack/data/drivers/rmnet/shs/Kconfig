@@ -3,8 +3,8 @@
 #
 
 config RMNET_SHS
-	tristate "Rmnet SHS driver"
-	default m
+	bool "Rmnet SHS driver"
+	default n
 	depends on RMNET
 	---help---
 	  performance mode of rmnet driver
