@@ -41,7 +41,6 @@ enum accdet_type_state_value {
 
 static struct switch_dev accdet_data;
 #endif
-
 void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 			  struct snd_soc_jack *jack, int status, int mask)
 {
@@ -2060,7 +2059,7 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 	mutex_destroy(&mbhc->codec_resource_lock);
 	mutex_destroy(&mbhc->hphl_pa_lock);
 	mutex_destroy(&mbhc->hphr_pa_lock);
-#ifndef CONFIG_SWITCH
+#ifdef CONFIG_SWITCH
 	switch_dev_unregister(&accdet_data);
 #endif
 }
