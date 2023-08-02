@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -106,7 +106,7 @@ void qdf_busy_wait(uint32_t us_interval)
 }
 qdf_export_symbol(qdf_busy_wait);
 
-#ifdef MSM_PLATFORM
+#ifdef PF_WAKE_UP_IDLE
 void qdf_set_wake_up_idle(bool idle)
 {
 	set_wake_up_idle(idle);
@@ -115,7 +115,7 @@ void qdf_set_wake_up_idle(bool idle)
 void qdf_set_wake_up_idle(bool idle)
 {
 }
-#endif /* MSM_PLATFORM */
+#endif /* PF_WAKE_UP_IDLE */
 
 qdf_export_symbol(qdf_set_wake_up_idle);
 
@@ -184,6 +184,24 @@ qdf_export_symbol(qdf_wake_up_process);
 
 #if defined(CONFIG_DEBUG_KERNEL)
 #define QDF_PRINT_TRACE_COUNT 32
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
+void qdf_print_thread_trace(qdf_thread_t *thread)
+{
+	const int spaces = 4;
+	struct task_struct *task = thread;
+	unsigned long entries[QDF_PRINT_TRACE_COUNT] = {0};
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.skip = 0,
+		.entries = &entries[0],
+		.max_entries = QDF_PRINT_TRACE_COUNT,
+	};
+
+	save_stack_trace_tsk(task, &trace);
+	stack_trace_print(entries, trace.nr_entries, spaces);
+}
+#else
 void qdf_print_thread_trace(qdf_thread_t *thread)
 {
 	const int spaces = 4;
@@ -199,6 +217,8 @@ void qdf_print_thread_trace(qdf_thread_t *thread)
 	save_stack_trace_tsk(task, &trace);
 	print_stack_trace(&trace, spaces);
 }
+#endif
+
 #else
 void qdf_print_thread_trace(qdf_thread_t *thread) { }
 #endif /* KERNEL_VERSION(4, 14, 0) */
@@ -250,3 +270,18 @@ void qdf_cpumask_setall(qdf_cpu_mask *dstp)
 }
 
 qdf_export_symbol(qdf_cpumask_setall);
+
+bool qdf_cpumask_empty(const struct cpumask *srcp)
+{
+	return cpumask_empty(srcp);
+}
+
+qdf_export_symbol(qdf_cpumask_empty);
+
+void qdf_cpumask_copy(struct cpumask *dstp,
+		      const struct cpumask *srcp)
+{
+	return cpumask_copy(dstp, srcp);
+}
+
+qdf_export_symbol(qdf_cpumask_copy);

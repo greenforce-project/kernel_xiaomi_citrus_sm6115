@@ -80,6 +80,7 @@ struct chan_change_cbk_entry {
 
 /**
  * struct wlan_regulatory_psoc_priv_obj - wlan regulatory psoc private object
+ * @chan_list_recvd: whether channel list has been received
  * @new_user_ctry_pending: In this array, element[phy_id] is true if any user
  *	country update is pending for pdev (phy_id), used in case of MCL.
  * @new_init_ctry_pending: In this array, element[phy_id] is true if any user
@@ -88,9 +89,16 @@ struct chan_change_cbk_entry {
  *	country update is pending for pdev (phy_id).
  * @world_country_pending: In this array, element[phy_id] is true if any world
  *	country update is pending for pdev (phy_id).
+ * @band_capability: bitmap of bands enabled, using enum reg_wifi_band as the
+ *	bit position value
+ * @ignore_fw_reg_offload_ind: Ignore FW reg offload indication
+ * @six_ghz_supported: whether 6ghz is supported
+ * @retain_nol_across_regdmn_update: Retain the NOL list across the regdomain
+ *	changes.
  */
 struct wlan_regulatory_psoc_priv_obj {
 	struct mas_chan_params mas_chan_params[PSOC_MAX_PHY_REG_CAP];
+	bool chan_list_recvd[PSOC_MAX_PHY_REG_CAP];
 	bool offload_enabled;
 	bool six_ghz_supported;
 	uint8_t num_phy;
@@ -105,7 +113,7 @@ struct wlan_regulatory_psoc_priv_obj {
 	bool new_11d_ctry_pending[PSOC_MAX_PHY_REG_CAP];
 	bool world_country_pending[PSOC_MAX_PHY_REG_CAP];
 	bool dfs_enabled;
-	enum band_info band_capability;
+	uint32_t band_capability;
 	bool indoor_chan_enabled;
 	bool ignore_fw_reg_offload_ind;
 	bool enable_11d_supp_original;
@@ -133,14 +141,17 @@ struct wlan_regulatory_psoc_priv_obj {
 	struct wlan_psoc_host_hal_reg_capabilities_ext
 			reg_cap[PSOC_MAX_PHY_REG_CAP];
 	bool force_ssc_disable_indoor_channel;
-	bool enable_srd_chan_in_master_mode;
+	uint8_t enable_srd_chan_in_master_mode;
 	bool enable_11d_in_world_mode;
 	qdf_spinlock_t cbk_list_lock;
+	bool retain_nol_across_regdmn_update;
 };
 
 /**
  * struct wlan_regulatory_pdev_priv_obj - wlan regulatory pdev private object
  * @pdev_opened: whether pdev has been opened by application
+ * @band_capability: bitmap of bands enabled, using enum reg_wifi_band as the
+ *	bit position value
  */
 struct wlan_regulatory_pdev_priv_obj {
 	struct regulatory_channel cur_chan_list[NUM_CHANNELS];
@@ -156,16 +167,19 @@ struct wlan_regulatory_pdev_priv_obj {
 	char current_country[REG_ALPHA2_LEN + 1];
 	uint16_t reg_dmn_pair;
 	uint16_t ctry_code;
+#ifdef DISABLE_UNII_SHARED_BANDS
+	uint8_t unii_5g_bitmap;
+#endif
 	enum dfs_reg dfs_region;
 	uint32_t phybitmap;
 	struct wlan_objmgr_pdev *pdev_ptr;
-	uint32_t range_2g_low;
-	uint32_t range_2g_high;
-	uint32_t range_5g_low;
-	uint32_t range_5g_high;
+	qdf_freq_t range_2g_low;
+	qdf_freq_t range_2g_high;
+	qdf_freq_t range_5g_low;
+	qdf_freq_t range_5g_high;
 	bool dfs_enabled;
 	bool set_fcc_channel;
-	enum band_info band_capability;
+	uint32_t band_capability;
 	bool indoor_chan_enabled;
 	bool en_chan_144;
 	uint32_t wireless_modes;
@@ -174,6 +188,7 @@ struct wlan_regulatory_pdev_priv_obj {
 	bool sap_state;
 	struct reg_rule_info reg_rules;
 	qdf_spinlock_t reg_rules_lock;
+	bool chan_list_recvd;
 	bool pdev_opened;
 };
 

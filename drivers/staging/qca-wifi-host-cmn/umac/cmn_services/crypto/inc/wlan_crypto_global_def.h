@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -49,6 +49,9 @@
 #define WLAN_CRYPTO_KEYIX_NONE       ((uint16_t)-1)
 #define WLAN_CRYPTO_MAXKEYIDX        (4)
 #define WLAN_CRYPTO_MAXIGTKKEYIDX    (2)
+#ifndef WLAN_CRYPTO_MAX_VLANKEYIX
+#define WLAN_CRYPTO_MAX_VLANKEYIX    WLAN_CRYPTO_MAXKEYIDX
+#endif
 #define WLAN_CRYPTO_MAX_PMKID        (16)
 
 /* 40 bit wep key len */
@@ -91,6 +94,8 @@
 #define WLAN_CRYPTO_KEY_SWDECRYPT    (0x100)
 /* host-based demic */
 #define WLAN_CRYPTO_KEY_SWDEMIC      (0x200)
+/* get pn from fw for key */
+#define WLAN_CRYPTO_KEY_GET_PN       (0x400)
 
 #define WLAN_CRYPTO_KEY_SWCRYPT      (WLAN_CRYPTO_KEY_SWENCRYPT \
 						| WLAN_CRYPTO_KEY_SWDECRYPT)
@@ -173,6 +178,12 @@ typedef enum wlan_crypto_rsn_cap {
 	WLAN_CRYPTO_RSN_CAP_MFP_REQUIRED  = 0x40,
 } wlan_crypto_rsn_cap;
 
+enum wlan_crypto_rsnx_cap {
+	WLAN_CRYPTO_RSNX_CAP_PROTECTED_TWT = 0x10,
+	WLAN_CRYPTO_RSNX_CAP_SAE_H2E = 0x20,
+	WLAN_CRYPTO_RSNX_CAP_SAE_PK = 0x40,
+};
+
 typedef enum wlan_crypto_key_mgmt {
 	WLAN_CRYPTO_KEY_MGMT_IEEE8021X             = 0,
 	WLAN_CRYPTO_KEY_MGMT_PSK                   = 1,
@@ -198,8 +209,9 @@ typedef enum wlan_crypto_key_mgmt {
 	WLAN_CRYPTO_KEY_MGMT_FT_FILS_SHA384        = 21,
 	WLAN_CRYPTO_KEY_MGMT_OWE                   = 22,
 	WLAN_CRYPTO_KEY_MGMT_DPP                   = 23,
+	WLAN_CRYPTO_KEY_MGMT_FT_IEEE8021X_SHA384   = 24,
 	/** Keep WLAN_CRYPTO_KEY_MGMT_MAX at the end. */
-	WLAN_CRYPTO_KEY_MGMT_MAX                   = WLAN_CRYPTO_KEY_MGMT_DPP,
+	WLAN_CRYPTO_KEY_MGMT_MAX   = WLAN_CRYPTO_KEY_MGMT_FT_IEEE8021X_SHA384,
 } wlan_crypto_key_mgmt;
 
 enum wlan_crypto_key_type {
@@ -216,13 +228,19 @@ enum wlan_crypto_key_type {
  * @pmkid: pmkid info
  * @pmk: pmk info
  * @pmk_len: pmk len
+ * @single_pmk_supported: SAE single pmk supported BSS
  */
-
 struct wlan_crypto_pmksa {
 	struct qdf_mac_addr bssid;
 	uint8_t    pmkid[PMKID_LEN];
 	uint8_t    pmk[MAX_PMK_LEN];
 	uint8_t    pmk_len;
+	uint8_t    ssid_len;
+	uint8_t    ssid[WLAN_SSID_MAX_LEN];
+	uint8_t    cache_id[WLAN_CACHE_ID_LEN];
+#if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
+	bool       single_pmk_supported;
+#endif
 };
 
 /**
@@ -348,6 +366,9 @@ struct wlan_crypto_req_key {
  * @delkey: function pointer to delkey in hw
  * @defaultkey: function pointer to set default key
  * @set_key: converged function pointer to set key in hw
+ * @getpn: function pointer to get current pn value of peer
+ * @register_events: function pointer to register wmi event handler
+ * @deregister_events: function pointer to deregister wmi event handler
  */
 
 struct wlan_lmac_if_crypto_tx_ops {
@@ -365,6 +386,10 @@ struct wlan_lmac_if_crypto_tx_ops {
 	QDF_STATUS (*set_key)(struct wlan_objmgr_vdev *vdev,
 			      struct wlan_crypto_key *key,
 			      enum wlan_crypto_key_type key_type);
+	QDF_STATUS(*getpn)(struct wlan_objmgr_vdev *vdev,
+			   uint8_t *macaddr, uint32_t key_type);
+	QDF_STATUS (*register_events)(struct wlan_objmgr_psoc *psoc);
+	QDF_STATUS (*deregister_events)(struct wlan_objmgr_psoc *psoc);
 };
 
 /**
