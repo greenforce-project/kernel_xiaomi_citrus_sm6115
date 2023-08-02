@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -453,7 +454,6 @@ QDF_STATUS policy_mgr_psoc_enable(struct wlan_objmgr_psoc *psoc)
 	}
 	policy_mgr_get_mcc_adaptive_sch(psoc, &enable_mcc_adaptive_sch);
 	policy_mgr_set_dynamic_mcc_adaptive_sch(psoc, enable_mcc_adaptive_sch);
-	pm_ctx->do_hw_mode_change = false;
 	pm_ctx->hw_mode_change_in_progress = POLICY_MGR_HW_MODE_NOT_IN_PROGRESS;
 	/* reset sap mandatory channels */
 	status = policy_mgr_reset_sap_mandatory_channels(pm_ctx);
@@ -614,8 +614,6 @@ QDF_STATUS policy_mgr_register_sme_cb(struct wlan_objmgr_psoc *psoc,
 
 	pm_ctx->sme_cbacks.sme_get_nss_for_vdev =
 		sme_cbacks->sme_get_nss_for_vdev;
-	pm_ctx->sme_cbacks.sme_get_valid_channels =
-		sme_cbacks->sme_get_valid_channels;
 	pm_ctx->sme_cbacks.sme_nss_update_request =
 		sme_cbacks->sme_nss_update_request;
 	pm_ctx->sme_cbacks.sme_pdev_set_hw_mode =
@@ -664,10 +662,12 @@ QDF_STATUS policy_mgr_register_hdd_cb(struct wlan_objmgr_psoc *psoc,
 		hdd_cbacks->get_mode_for_non_connected_vdev;
 	pm_ctx->hdd_cbacks.hdd_get_device_mode =
 		hdd_cbacks->hdd_get_device_mode;
-	pm_ctx->hdd_cbacks.hdd_wapi_security_sta_exist =
-		hdd_cbacks->hdd_wapi_security_sta_exist;
 	pm_ctx->hdd_cbacks.hdd_is_chan_switch_in_progress =
 		hdd_cbacks->hdd_is_chan_switch_in_progress;
+	pm_ctx->hdd_cbacks.hdd_is_cac_in_progress =
+		hdd_cbacks->hdd_is_cac_in_progress;
+	pm_ctx->hdd_cbacks.hdd_get_ap_6ghz_capable =
+		hdd_cbacks->hdd_get_ap_6ghz_capable;
 	pm_ctx->hdd_cbacks.wlan_hdd_indicate_active_ndp_cnt =
 		hdd_cbacks->wlan_hdd_indicate_active_ndp_cnt;
 
@@ -688,6 +688,9 @@ QDF_STATUS policy_mgr_deregister_hdd_cb(struct wlan_objmgr_psoc *psoc)
 	pm_ctx->hdd_cbacks.wlan_hdd_get_channel_for_sap_restart = NULL;
 	pm_ctx->hdd_cbacks.get_mode_for_non_connected_vdev = NULL;
 	pm_ctx->hdd_cbacks.hdd_get_device_mode = NULL;
+	pm_ctx->hdd_cbacks.hdd_is_chan_switch_in_progress = NULL;
+	pm_ctx->hdd_cbacks.hdd_is_cac_in_progress = NULL;
+	pm_ctx->hdd_cbacks.hdd_get_ap_6ghz_capable = NULL;
 
 	return QDF_STATUS_SUCCESS;
 }
