@@ -5,18 +5,9 @@ ifeq ($(CONFIG_ARCH_BENGAL), y)
 include $(srctree)/techpack/camera-bengal/config/bengalcamera.conf
 endif
 
-ifeq ($(CONFIG_ARCH_KHAJE), y)
-include $(srctree)/techpack/camera-bengal/config/khajecamera.conf
-endif
-
 ifeq ($(CONFIG_ARCH_BENGAL), y)
 LINUXINCLUDE    += \
 		-include $(srctree)/techpack/camera-bengal/config/bengalcameraconf.h
-endif
-
-ifeq ($(CONFIG_ARCH_KHAJE), y)
-LINUXINCLUDE    += \
-		-include $(srctree)/techpack/camera-bengal/config/khajecameraconf.h
 endif
 
 ifdef CONFIG_SPECTRA_CAMERA_BENGAL
