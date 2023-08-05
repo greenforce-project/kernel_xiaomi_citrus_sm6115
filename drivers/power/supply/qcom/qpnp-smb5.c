@@ -893,9 +893,9 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SKIN_HEALTH,
 	POWER_SUPPLY_PROP_APSD_RERUN,
 	POWER_SUPPLY_PROP_APSD_TIMEOUT,
-	POWER_SUPPLY_PROP_OTG_ONLINE,
 	POWER_SUPPLY_PROP_CHARGER_STATUS,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
+	POWER_SUPPLY_PROP_OTG_ONLINE,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -1046,9 +1046,6 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_APSD_TIMEOUT:
 		val->intval = chg->apsd_ext_timeout;
 		break;
-	case POWER_SUPPLY_PROP_OTG_ONLINE:
-		val->intval = chg->otg_present;
-		break;
 	case POWER_SUPPLY_PROP_CHARGER_STATUS:
 		val->intval = 0;
 		if (chg->sdam_base) {
@@ -1066,6 +1063,8 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 			if (!rc)
 				val->intval = (buff[1] << 8 | buff[0]) * 1038;
 		}
+	case POWER_SUPPLY_PROP_OTG_ONLINE:
+		val->intval = chg->otg_present;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1712,7 +1711,6 @@ static int smb5_init_dc_psy(struct smb5 *chip)
  * BATT PSY REGISTRATION *
  *************************/
 static enum power_supply_property smb5_batt_props[] = {
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
