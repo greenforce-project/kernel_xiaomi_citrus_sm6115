@@ -111,7 +111,7 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 	case MMC_ISSUE_DCMD:
 		if (host->cqe_ops->cqe_timeout(host, mrq, &recovery_needed)) {
 			if (recovery_needed)
-				mmc_cqe_recovery_notifier(mrq);
+				__mmc_cqe_recovery_notifier(mq);
 			return BLK_EH_RESET_TIMER;
 		}
 
@@ -139,13 +139,12 @@ static enum blk_eh_timer_return mmc_mq_timed_out(struct request *req,
 
 	spin_lock_irqsave(q->queue_lock, flags);
 
-	if (mq->recovery_needed || !mq->use_cqe) {
+	if (mq->recovery_needed || !mq->use_cqe)
 		ret = BLK_EH_RESET_TIMER;
-		spin_unlock_irqrestore(q->queue_lock, flags);
-	} else {
-		spin_unlock_irqrestore(q->queue_lock, flags);
+	else
 		ret = mmc_cqe_timed_out(req);
-	}
+
+	spin_unlock_irqrestore(q->queue_lock, flags);
 
 	return ret;
 }
