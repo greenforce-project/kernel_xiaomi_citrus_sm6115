@@ -8038,14 +8038,14 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	u64 start_t = 0;
 	int delta = 0;
 	int task_boost = per_task_boost(p);
+	int boosted = (task_boost > 0) ||
 #ifdef CONFIG_SCHED_TUNE
+	(schedtune_task_boost(p) > 0);
 	bool prefer_high_cap = schedtune_prefer_high_cap(p);
-	int boosted = (schedtune_task_boost(p) > 0) ||
 #else
+	(uclamp_boosted(p) > 0);
 	bool prefer_high_cap = boosted;
-	int boosted = (uclamp_boosted(p) > 0) ||
 #endif
-	(task_boost > 0);
 	int start_cpu = get_start_cpu(p, sync_boost);
 
 	if (is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
