@@ -860,7 +860,7 @@
 
 &thermal_zones {
 	quiet-therm-step {
-		status = "ok";
+		status = "disabled";
 	};
 };
 
