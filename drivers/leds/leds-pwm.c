@@ -171,7 +171,7 @@ static int led_pwm_set(struct led_classdev *led_cdev,
 
 	led_data->pwmstate.duty_cycle = duty;
 	led_data->pwmstate.enabled = true;
-	return pwm_apply_state(led_dat->pwm, &led_data->pwmstate);
+	return pwm_apply_state(led_data->pwm, &led_data->pwmstate);
 }
 
 static inline size_t sizeof_pwm_leds_priv(int num_leds)
