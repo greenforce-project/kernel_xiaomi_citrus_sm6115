@@ -19,7 +19,7 @@
 			reg = <0x100 0x100>;
 		};
 
-		pm7250b_pon: qcom,power-on@800 {
+		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 		};
@@ -34,8 +34,6 @@
 				3500000 3000000 2500000 2000000 1500000
 				1000000 500000>;
 			qcom,pmic-revid = <&pm7250b_revid>;
-			qcom,hvdcp2-max-icl-ua = <2000000>;
-			qcom,hvdcp2-12v-max-icl-ua = <1500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -179,10 +177,6 @@
 						  "temp-change",
 						  "temp-change-smb";
 			};
-
-			qcom,chg-sdam@b000 {
-				reg = <0xb000 0x100>;
-			};
 		};
 
 		pm7250b_pdphy: qcom,usb-pdphy@1700 {
@@ -215,8 +209,6 @@
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_BOTH>;
-			io-channels = <&pm7250b_vadc ADC_DIE_TEMP>;
-			io-channel-names = "thermal";
 			#thermal-sensor-cells = <0>;
 			qcom,temperature-threshold-set = <1>;
 		};
@@ -622,17 +614,16 @@
 		};
 	};
 
-	soc {
+	socd {
 		polling-delay-passive = <100>;
 		polling-delay = <0>;
-		thermal-governor = "low_limits_cap";
+		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
-		tracks-low;
 
 		trips {
 			soc_trip:soc-trip {
-				temperature = <10>;
+				temperature = <90>;
 				hysteresis = <0>;
 				type = "passive";
 			};

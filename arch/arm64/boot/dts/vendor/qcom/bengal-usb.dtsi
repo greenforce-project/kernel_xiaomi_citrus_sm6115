@@ -48,7 +48,6 @@
 			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,gsi-disable-io-coherency;
-		qcom,pm-qos-latency = <40>;
 
 		qcom,msm-bus,name = "usb0";
 		qcom,msm-bus,num-cases = <4>;
@@ -61,7 +60,7 @@
 
 			/*  nominal vote */
 			<MSM_BUS_MASTER_USB3
-				MSM_BUS_SLAVE_EBI_CH0 1000000 1550000>,
+				MSM_BUS_SLAVE_EBI_CH0 240000 700000>,
 			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 2400>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>,
 
@@ -89,7 +88,6 @@
 			snps,dis_enblslpm_quirk;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
-			snps,usb3-u1u2-disable;
 			snps,usb3_lpm_capable;
 			usb-core-id = <0>;
 			maximum-speed = "super-speed";
@@ -144,10 +142,11 @@
 		qcom,vdd-voltage-level = <0 925000 970000>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
+		qcom,tune2-efuse-correction = <(-5)>;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
 					0xb3 0x84
 					0x81 0x88
-					0xc0 0x8c
+					0xc7 0x8c
 					0x30 0x08
 					0x79 0x0c
 					0x21 0x10
