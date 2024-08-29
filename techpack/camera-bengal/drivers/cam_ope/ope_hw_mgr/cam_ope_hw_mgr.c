@@ -1737,6 +1737,7 @@ static int cam_ope_mgr_create_kmd_buf(struct cam_ope_hw_mgr *hw_mgr,
 			goto end;
 		}
 	}
+
 end:
 	return rc;
 }
