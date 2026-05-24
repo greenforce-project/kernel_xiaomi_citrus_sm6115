@@ -431,6 +431,11 @@ static void sde_hdcp_2x_query_stream(struct sde_hdcp_2x_ctrl *hdcp)
 		return;
 	}
 
+	if (!hdcp->app_data.response.data) {
+		pr_err("invalid response buffer\n");
+		return;
+	}
+
 	if (!hdcp->authenticated &&
 			hdcp->app_data.response.data[0] != REP_SEND_ACK) {
 		pr_debug("invalid state. HDCP repeater not authenticated\n");
