@@ -1737,8 +1737,10 @@ void timekeeping_resume(void)
 
 	touch_softlockup_watchdog();
 
+	/* Resume the clockevent device(s) and hrtimers */
 	tick_resume();
-	hrtimers_resume();
+	/* Notify timerfd as resume is equivalent to clock_was_set() */
+	timerfd_resume();
 }
 
 int timekeeping_suspend(void)
@@ -2412,8 +2414,20 @@ EXPORT_SYMBOL(hardpps);
  */
 void xtime_update(unsigned long ticks)
 {
-	write_seqlock(&jiffies_lock);
+	raw_spin_lock(&jiffies_lock);
+	write_seqcount_begin(&jiffies_seq);
 	do_timer(ticks);
-	write_sequnlock(&jiffies_lock);
+	write_seqcount_end(&jiffies_seq);
+	raw_spin_unlock(&jiffies_lock);
 	update_wall_time();
+}
+
+/**
+ * get_total_sleep_time_nsec() - returns total sleep time in nanoseconds
+ */
+s64 get_total_sleep_time_nsec(void)
+{
+	struct timekeeper *tk = &tk_core.timekeeper;
+
+	return ktime_to_ns(tk->offs_boot);
 }

@@ -69,8 +69,7 @@ config ATMEL_TCB_CLKSRC
 	  are combined to make a single 32-bit timer.
 
 	  When GENERIC_CLOCKEVENTS is defined, the third timer channel
-	  may be used as a clock event device supporting oneshot mode
-	  (delays of up to two seconds) based on the 32 KiHz clock.
+	  may be used as a clock event device supporting oneshot mode.
 
 config ATMEL_TCB_CLKSRC_BLOCK
 	int
@@ -82,6 +81,15 @@ config ATMEL_TCB_CLKSRC_BLOCK
 	  choice of which one to use for the clock framework.  The other
 	  TC can be used for other purposes, such as PWM generation and
 	  interval timing.
+
+config ATMEL_TCB_CLKSRC_USE_SLOW_CLOCK
+	bool "TC Block use 32 KiHz clock"
+	depends on ATMEL_TCB_CLKSRC
+	default y
+	help
+	  Select this to use 32 KiHz base clock rate as TC block clock
+	  source for clock events.
+
 
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
@@ -537,13 +545,6 @@ config UID_SYS_STATS
 	  Per UID based cpu time statistics exported to /proc/uid_cputime
 	  Per UID based io statistics exported to /proc/uid_io
 	  Per UID based procstat control in /proc/uid_procstat
-
-config UID_SYS_STATS_DEBUG
-	bool "Per-TASK statistics"
-	depends on UID_SYS_STATS
-	default n
-	help
-	  Per TASK based io statistics exported to /proc/uid_io
 
 config MEMORY_STATE_TIME
 	tristate "Memory freq/bandwidth time statistics"

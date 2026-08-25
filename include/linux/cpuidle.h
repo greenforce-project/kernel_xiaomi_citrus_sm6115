@@ -29,10 +29,15 @@ struct cpuidle_driver;
  * CPUIDLE DEVICE INTERFACE *
  ****************************/
 
+#define CPUIDLE_STATE_DISABLED_BY_USER		BIT(0)
+#define CPUIDLE_STATE_DISABLED_BY_DRIVER	BIT(1)
+
 struct cpuidle_state_usage {
 	unsigned long long	disable;
 	unsigned long long	usage;
-	unsigned long long	time; /* in US */
+	u64			time_ns;
+	unsigned long long	above; /* Number of times it's been too deep */
+	unsigned long long	below; /* Number of times it's been too shallow */
 #ifdef CONFIG_SUSPEND
 	unsigned long long	s2idle_usage;
 	unsigned long long	s2idle_time; /* in US */
@@ -43,6 +48,8 @@ struct cpuidle_state {
 	char		name[CPUIDLE_NAME_LEN];
 	char		desc[CPUIDLE_DESC_LEN];
 
+	s64		exit_latency_ns;
+	s64		target_residency_ns;
 	unsigned int	flags;
 	unsigned int	exit_latency; /* in US */
 	int		power_usage; /* in mW */
@@ -83,8 +90,11 @@ struct cpuidle_device {
 	unsigned int		use_deepest_state:1;
 	unsigned int		poll_time_limit:1;
 	unsigned int		cpu;
+	ktime_t			next_hrtimer;
 
-	int			last_residency;
+	int			last_state_idx;
+	u64			last_residency_ns;
+	u64			poll_limit_ns;
 	struct cpuidle_state_usage	states_usage[CPUIDLE_STATE_MAX];
 	struct cpuidle_state_kobj *kobjs[CPUIDLE_STATE_MAX];
 	struct cpuidle_driver_kobj *kobj_driver;
@@ -99,16 +109,6 @@ struct cpuidle_device {
 
 DECLARE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
 DECLARE_PER_CPU(struct cpuidle_device, cpuidle_dev);
-
-/**
- * cpuidle_get_last_residency - retrieves the last state's residency time
- * @dev: the target CPU
- */
-static inline int cpuidle_get_last_residency(struct cpuidle_device *dev)
-{
-	return dev->last_residency;
-}
-
 
 /****************************
  * CPUIDLE DRIVER INTERFACE *
@@ -141,6 +141,8 @@ extern int cpuidle_select(struct cpuidle_driver *drv,
 extern int cpuidle_enter(struct cpuidle_driver *drv,
 			 struct cpuidle_device *dev, int index);
 extern void cpuidle_reflect(struct cpuidle_device *dev, int index);
+extern u64 cpuidle_poll_time(struct cpuidle_driver *drv,
+			     struct cpuidle_device *dev);
 
 extern int cpuidle_register_driver(struct cpuidle_driver *drv);
 extern struct cpuidle_driver *cpuidle_get_driver(void);
@@ -175,6 +177,9 @@ static inline int cpuidle_enter(struct cpuidle_driver *drv,
 				struct cpuidle_device *dev, int index)
 {return -ENODEV; }
 static inline void cpuidle_reflect(struct cpuidle_device *dev, int index) { }
+extern u64 cpuidle_poll_time(struct cpuidle_driver *drv,
+			     struct cpuidle_device *dev)
+{return 0; }
 static inline int cpuidle_register_driver(struct cpuidle_driver *drv)
 {return -ENODEV; }
 static inline struct cpuidle_driver *cpuidle_get_driver(void) {return NULL; }
@@ -259,7 +264,7 @@ struct cpuidle_governor {
 
 #ifdef CONFIG_CPU_IDLE
 extern int cpuidle_register_governor(struct cpuidle_governor *gov);
-extern int cpuidle_governor_latency_req(unsigned int cpu);
+extern s64 cpuidle_governor_latency_req(unsigned int cpu);
 #else
 static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 {return 0;}
@@ -269,17 +274,18 @@ static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 ({									\
 	int __ret = 0;							\
 									\
-	if (!idx) {							\
+	if (need_resched()) {						\
+		__ret = -1;						\
+	} else if (!idx) {						\
 		cpu_do_idle();						\
-		return idx;						\
-	}								\
-									\
-	if (!is_retention)						\
-		__ret =  cpu_pm_enter();				\
-	if (!__ret) {							\
-		__ret = low_level_idle_enter(idx);			\
+	} else {							\
 		if (!is_retention)					\
-			cpu_pm_exit();					\
+			__ret = cpu_pm_enter();				\
+		if (!__ret) {						\
+			__ret = low_level_idle_enter(idx);		\
+			if (!is_retention)				\
+				cpu_pm_exit();				\
+		}							\
 	}								\
 									\
 	__ret ? -1 : idx;						\
@@ -290,5 +296,13 @@ static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 
 #define CPU_PM_CPU_IDLE_ENTER_RETENTION(low_level_idle_enter, idx)	\
 	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, 1)
+
+#ifdef CONFIG_SMP
+void cpuidle_set_idle_cpu(unsigned int cpu);
+void cpuidle_clear_idle_cpu(unsigned int cpu);
+#else
+static inline void cpuidle_set_idle_cpu(unsigned int cpu) { }
+static inline void cpuidle_clear_idle_cpu(unsigned int cpu) { }
+#endif
 
 #endif /* _LINUX_CPUIDLE_H */

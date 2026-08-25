@@ -20,6 +20,10 @@
 #include <linux/osq_lock.h>
 #endif
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+#include <linux/rwsem_rt.h>
+#else /* PREEMPT_RT_FULL */
+
 struct rw_semaphore;
 
 #ifdef CONFIG_RWSEM_GENERIC_SPINLOCK
@@ -41,10 +45,6 @@ struct rw_semaphore {
 #endif
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
-#endif
-#ifdef CONFIG_RWSEM_PRIO_AWARE
-	/* count for waiters preempt to queue in wait list */
-	long m_count;
 #endif
 };
 
@@ -91,19 +91,12 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
 #define __RWSEM_OPT_INIT(lockname)
 #endif
 
-#ifdef CONFIG_RWSEM_PRIO_AWARE
-#define __RWSEM_PRIO_AWARE_INIT(lockname)	.m_count = 0
-#else
-#define __RWSEM_PRIO_AWARE_INIT(lockname)
-#endif
-
 #define __RWSEM_INITIALIZER(name)				\
 	{ __RWSEM_INIT_COUNT(name),				\
 	  .wait_list = LIST_HEAD_INIT((name).wait_list),	\
 	  .wait_lock = __RAW_SPIN_LOCK_UNLOCKED(name.wait_lock)	\
 	  __RWSEM_OPT_INIT(name)				\
-	  __RWSEM_DEP_MAP_INIT(name),				\
-	  __RWSEM_PRIO_AWARE_INIT(name) }
+	  __RWSEM_DEP_MAP_INIT(name) }
 
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
@@ -128,6 +121,13 @@ static inline int rwsem_is_contended(struct rw_semaphore *sem)
 {
 	return !list_empty(&sem->wait_list);
 }
+
+#endif /* !PREEMPT_RT_FULL */
+
+/*
+ * The functions below are the same for all rwsem implementations including
+ * the RT specific variant.
+ */
 
 /*
  * lock for reading

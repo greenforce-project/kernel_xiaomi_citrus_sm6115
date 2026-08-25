@@ -46,12 +46,7 @@ static int prepend_name(char **buffer, int *buflen, const struct qstr *name)
 		return -ENAMETOOLONG;
 	p = *buffer -= dlen + 1;
 	*p++ = '/';
-	while (dlen--) {
-		char c = *dname++;
-		if (!c)
-			break;
-		*p++ = c;
-	}
+	memcpy(p, dname, dlen);
 	return 0;
 }
 
@@ -426,10 +421,7 @@ SYSCALL_DEFINE2(getcwd, char __user *, buf, unsigned long, size)
 {
 	int error;
 	struct path pwd, root;
-	char *page = __getname();
-
-	if (!page)
-		return -ENOMEM;
+	char page[PATH_MAX] __aligned(8);
 
 	rcu_read_lock();
 	get_fs_root_and_pwd_rcu(current->fs, &root, &pwd);
@@ -466,6 +458,5 @@ SYSCALL_DEFINE2(getcwd, char __user *, buf, unsigned long, size)
 	}
 
 out:
-	__putname(page);
 	return error;
 }

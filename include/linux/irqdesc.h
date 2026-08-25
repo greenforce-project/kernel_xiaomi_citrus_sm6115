@@ -105,6 +105,7 @@ struct irq_desc {
 	int			parent_irq;
 	struct module		*owner;
 	const char		*name;
+	struct list_head	perf_list;
 } ____cacheline_internodealigned_in_smp;
 
 #ifdef CONFIG_SPARSE_IRQ
@@ -156,6 +157,7 @@ static inline void generic_handle_irq_desc(struct irq_desc *desc)
 }
 
 int generic_handle_irq(unsigned int irq);
+int generic_handle_irq_safe(unsigned int irq);
 
 #ifdef CONFIG_HANDLE_DOMAIN_IRQ
 /*

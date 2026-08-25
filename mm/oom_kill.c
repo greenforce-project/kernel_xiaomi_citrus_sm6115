@@ -57,7 +57,7 @@ int sysctl_panic_on_oom =
 IS_ENABLED(CONFIG_DEBUG_PANIC_ON_OOM) ? 2 : 0;
 int sysctl_oom_kill_allocating_task;
 int sysctl_oom_dump_tasks = 1;
-int sysctl_reap_mem_on_sigkill = 1;
+int sysctl_reap_mem_on_sigkill;
 
 static int panic_on_adj_zero;
 module_param(panic_on_adj_zero, int, 0644);
@@ -1278,6 +1278,10 @@ bool out_of_memory(struct oom_control *oc)
 {
 	unsigned long freed = 0;
 	enum oom_constraint constraint = CONSTRAINT_NONE;
+
+	/* Return true since Simple LMK automatically kills in the background */
+	if (IS_ENABLED(CONFIG_ANDROID_SIMPLE_LMK))
+		return true;
 
 	if (oom_killer_disabled)
 		return false;

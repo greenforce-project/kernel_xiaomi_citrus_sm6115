@@ -117,8 +117,11 @@ void __lockfunc __raw_##op##_lock_bh(locktype##_t *lock)		\
  *         __[spin|read|write]_lock_bh()
  */
 BUILD_LOCK_OPS(spin, raw_spinlock);
+
+#ifndef CONFIG_PREEMPT_RT_FULL
 BUILD_LOCK_OPS(read, rwlock);
 BUILD_LOCK_OPS(write, rwlock);
+#endif
 
 #endif
 
@@ -201,6 +204,8 @@ void __lockfunc _raw_spin_unlock_bh(raw_spinlock_t *lock)
 }
 EXPORT_SYMBOL(_raw_spin_unlock_bh);
 #endif
+
+#ifndef CONFIG_PREEMPT_RT_FULL
 
 #ifndef CONFIG_INLINE_READ_TRYLOCK
 int __lockfunc _raw_read_trylock(rwlock_t *lock)
@@ -288,6 +293,12 @@ void __lockfunc _raw_write_lock(rwlock_t *lock)
 	__raw_write_lock(lock);
 }
 EXPORT_SYMBOL(_raw_write_lock);
+
+void __lockfunc _raw_write_lock_nested(rwlock_t *lock, int subclass)
+{
+	__raw_write_lock_nested(lock, subclass);
+}
+EXPORT_SYMBOL(_raw_write_lock_nested);
 #endif
 
 #ifndef CONFIG_INLINE_WRITE_LOCK_IRQSAVE
@@ -345,6 +356,8 @@ void __lockfunc _raw_write_unlock_bh(rwlock_t *lock)
 }
 EXPORT_SYMBOL(_raw_write_unlock_bh);
 #endif
+
+#endif /* !PREEMPT_RT_FULL */
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 

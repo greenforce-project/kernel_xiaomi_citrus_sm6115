@@ -63,8 +63,6 @@
 #include <asm/system_misc.h>
 #include <soc/qcom/minidump.h>
 
-#include <soc/qcom/lpm_levels.h>
-
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
 
@@ -606,7 +604,6 @@ void (*__smp_cross_call)(const struct cpumask *, unsigned int);
 DEFINE_PER_CPU(bool, pending_ipi);
 EXPORT_SYMBOL_GPL(pending_ipi);
 
-static void (*__smp_update_ipi_history_cb)(int cpu);
 /*
  * Enumerate the possible CPU set from the device tree and build the
  * cpu logical map array containing MPIDR values related to logical
@@ -752,12 +749,6 @@ void __init set_smp_cross_call(void (*fn)(const struct cpumask *, unsigned int))
 	__smp_cross_call = fn;
 }
 
-void set_update_ipi_history_callback(void (*fn)(int))
-{
-	__smp_update_ipi_history_cb = fn;
-}
-EXPORT_SYMBOL_GPL(set_update_ipi_history_callback);
-
 static const char *ipi_types[NR_IPI] __tracepoint_string = {
 #define S(x,s)	[x] = s
 	S(IPI_RESCHEDULE, "Rescheduling interrupts"),
@@ -821,12 +812,10 @@ void arch_send_call_function_single_ipi(int cpu)
 	smp_cross_call_common(cpumask_of(cpu), IPI_CALL_FUNC);
 }
 
-#ifdef CONFIG_ARM64_ACPI_PARKING_PROTOCOL
 void arch_send_wakeup_ipi_mask(const struct cpumask *mask)
 {
 	smp_cross_call_common(mask, IPI_WAKEUP);
 }
-#endif
 
 #ifdef CONFIG_IRQ_WORK
 void arch_irq_work_raise(void)
@@ -946,13 +935,8 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 #endif
 
-#ifdef CONFIG_ARM64_ACPI_PARKING_PROTOCOL
 	case IPI_WAKEUP:
-		WARN_ONCE(!acpi_parking_protocol_valid(cpu),
-			  "CPU%u: Wake-up IPI outside the ACPI parking protocol\n",
-			  cpu);
 		break;
-#endif
 
 	default:
 		pr_crit("CPU%u: Unknown IPI message 0x%x\n", cpu, ipinr);
@@ -968,8 +952,6 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 void smp_send_reschedule(int cpu)
 {
 	BUG_ON(cpu_is_offline(cpu));
-	if (__smp_update_ipi_history_cb)
-		__smp_update_ipi_history_cb(cpu);
 	smp_cross_call_common(cpumask_of(cpu), IPI_RESCHEDULE);
 }
 

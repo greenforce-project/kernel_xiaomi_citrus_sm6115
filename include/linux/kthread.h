@@ -4,6 +4,7 @@
 /* Simple interface for creating and stopping kernel threads without mess. */
 #include <linux/err.h>
 #include <linux/sched.h>
+#include <linux/cgroup.h>
 
 __printf(4, 5)
 struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
@@ -34,6 +35,17 @@ struct task_struct *kthread_create_on_cpu(int (*threadfn)(void *data),
 void kthread_set_per_cpu(struct task_struct *k, int cpu);
 bool kthread_is_per_cpu(struct task_struct *k);
 
+static inline void kthread_set_perf_critical_affinity(
+		struct task_struct *k, const struct cpumask *mask)
+{
+	if (mask == cpu_prime_mask)
+		k->pc_flags |= PC_PRIME_AFFINE;
+	else if (mask == cpu_perf_mask)
+		k->pc_flags |= PC_PERF_AFFINE;
+	else
+		k->pc_flags |= PC_LITTLE_AFFINE;
+}
+
 /**
  * kthread_run - create and wake a thread.
  * @threadfn: the function to run until signal_pending(current).
@@ -49,6 +61,26 @@ bool kthread_is_per_cpu(struct task_struct *k);
 		= kthread_create(threadfn, data, namefmt, ## __VA_ARGS__); \
 	if (!IS_ERR(__k))						   \
 		wake_up_process(__k);					   \
+	__k;								   \
+})
+
+/**
+ * kthread_run_perf_critical - create and wake a performance-critical thread.
+ *
+ * Same as kthread_create(), but takes a perf cpumask to affine to.
+ */
+#define kthread_run_perf_critical(perfmask, threadfn, data, namefmt, ...)  \
+({									   \
+	struct task_struct *__k						   \
+		= kthread_create(threadfn, data, namefmt, ## __VA_ARGS__); \
+	if (!IS_ERR(__k)) {						   \
+		kthread_set_perf_critical_affinity(__k, perfmask);	   \
+		BUILD_BUG_ON(perfmask != cpu_lp_mask &&			   \
+			     perfmask != cpu_perf_mask &&		   \
+			     perfmask != cpu_prime_mask);		   \
+		kthread_bind_mask(__k, perfmask);			   \
+		wake_up_process(__k);					   \
+	}								   \
 	__k;								   \
 })
 
@@ -87,7 +119,7 @@ enum {
 
 struct kthread_worker {
 	unsigned int		flags;
-	spinlock_t		lock;
+	raw_spinlock_t		lock;
 	struct list_head	work_list;
 	struct list_head	delayed_work_list;
 	struct task_struct	*task;
@@ -108,7 +140,7 @@ struct kthread_delayed_work {
 };
 
 #define KTHREAD_WORKER_INIT(worker)	{				\
-	.lock = __SPIN_LOCK_UNLOCKED((worker).lock),			\
+	.lock = __RAW_SPIN_LOCK_UNLOCKED((worker).lock),		\
 	.work_list = LIST_HEAD_INIT((worker).work_list),		\
 	.delayed_work_list = LIST_HEAD_INIT((worker).delayed_work_list),\
 	}
@@ -168,7 +200,7 @@ extern void __kthread_init_worker(struct kthread_worker *worker,
 		kthread_init_work(&(dwork)->work, (fn));		\
 		__init_timer(&(dwork)->timer,				\
 			     kthread_delayed_work_timer_fn,		\
-			     TIMER_IRQSAFE);				\
+			      0);					\
 	} while (0)
 
 int kthread_worker_fn(void *worker_ptr);

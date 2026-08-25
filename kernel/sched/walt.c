@@ -2150,11 +2150,6 @@ void init_new_task_load(struct task_struct *p)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 
-	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32),
-					  GFP_KERNEL | __GFP_NOFAIL);
-	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32),
-					  GFP_KERNEL | __GFP_NOFAIL);
-
 	if (init_load_pct) {
 		init_load_windows = div64_u64((u64)init_load_pct *
 			  (u64)sched_ravg_window, 100);
@@ -2172,46 +2167,28 @@ void init_new_task_load(struct task_struct *p)
 	p->unfilter = sysctl_sched_task_unfilter_period;
 }
 
-/*
- * kfree() may wakeup kswapd. So this function should NOT be called
- * with any CPU's rq->lock acquired.
- */
-void free_task_load_ptrs(struct task_struct *p)
-{
-	kfree(p->ravg.curr_window_cpu);
-	kfree(p->ravg.prev_window_cpu);
-
-	/*
-	 * update_task_ravg() can be called for exiting tasks. While the
-	 * function itself ensures correct behavior, the corresponding
-	 * trace event requires that these pointers be NULL.
-	 */
-	p->ravg.curr_window_cpu = NULL;
-	p->ravg.prev_window_cpu = NULL;
-}
-
 void reset_task_stats(struct task_struct *p)
 {
-	u32 sum = 0;
-	u32 *curr_window_ptr = NULL;
-	u32 *prev_window_ptr = NULL;
+	u32 sum;
+	u32 curr_window_saved[CONFIG_NR_CPUS];
+	u32 prev_window_saved[CONFIG_NR_CPUS];
 
 	if (exiting_task(p)) {
 		sum = EXITING_TASK_MARKER;
+
+		memset(&p->ravg, 0, sizeof(struct ravg));
+
+		/* Retain EXITING_TASK marker */
+		p->ravg.sum_history[0] = sum;
 	} else {
-		curr_window_ptr =  p->ravg.curr_window_cpu;
-		prev_window_ptr = p->ravg.prev_window_cpu;
-		memset(curr_window_ptr, 0, sizeof(u32) * nr_cpu_ids);
-		memset(prev_window_ptr, 0, sizeof(u32) * nr_cpu_ids);
+		memcpy(curr_window_saved, p->ravg.curr_window_cpu, sizeof(curr_window_saved));
+		memcpy(prev_window_saved, p->ravg.prev_window_cpu, sizeof(prev_window_saved));
+
+		memset(&p->ravg, 0, sizeof(struct ravg));
+
+		memcpy(p->ravg.curr_window_cpu, curr_window_saved, sizeof(curr_window_saved));
+		memcpy(p->ravg.prev_window_cpu, prev_window_saved, sizeof(prev_window_saved));
 	}
-
-	memset(&p->ravg, 0, sizeof(struct ravg));
-
-	p->ravg.curr_window_cpu = curr_window_ptr;
-	p->ravg.prev_window_cpu = prev_window_ptr;
-
-	/* Retain EXITING_TASK marker */
-	p->ravg.sum_history[0] = sum;
 }
 
 void mark_task_starting(struct task_struct *p)
@@ -2653,6 +2630,7 @@ int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 				    CPUFREQ_TRANSITION_NOTIFIER);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(register_cpu_cycle_counter_cb);
 
 static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 				struct task_struct *p, int event);
@@ -3099,7 +3077,7 @@ unsigned long do_thermal_cap(int cpu, unsigned long thermal_max_freq)
 		}
 
 		nr_cap_states = em_pd_nr_cap_states(pd->em_pd);
-		scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
+		scale_cpu = arch_scale_cpu_capacity(cpu);
 		freq = pd->em_pd->table[nr_cap_states - 1].frequency;
 		max_cap[cpu] = DIV_ROUND_UP(scale_cpu * freq,
 					cpu_max_table_freq[cpu]);
@@ -3139,6 +3117,7 @@ void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
 	if (update_capacity)
 		walt_cpus_capacity_changed(cpus);
 }
+EXPORT_SYMBOL_GPL(sched_update_cpu_freq_min_max);
 
 void note_task_waking(struct task_struct *p, u64 wallclock)
 {
@@ -3538,7 +3517,7 @@ void walt_fill_ta_data(struct core_ctl_notif_data *data)
 
 	min_cap_cpu = this_rq()->rd->min_cap_orig_cpu;
 	if (min_cap_cpu != -1)
-		scale = arch_scale_cpu_capacity(NULL, min_cap_cpu);
+		scale = arch_scale_cpu_capacity(min_cap_cpu);
 
 	data->coloc_load_pct = div64_u64(total_demand * 1024 * 100,
 			       (u64)sched_ravg_window * scale);
@@ -3550,7 +3529,7 @@ fill_util:
 		if (i == MAX_CLUSTERS)
 			break;
 
-		scale = arch_scale_cpu_capacity(NULL, fcpu);
+		scale = arch_scale_cpu_capacity(fcpu);
 		data->ta_util_pct[i] = div64_u64(cluster->aggr_grp_load * 1024 *
 				       100, (u64)sched_ravg_window * scale);
 

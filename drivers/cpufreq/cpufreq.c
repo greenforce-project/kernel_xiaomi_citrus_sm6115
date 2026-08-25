@@ -534,21 +534,11 @@ unsigned int cpufreq_policy_transition_delay_us(struct cpufreq_policy *policy)
 		return policy->transition_delay_us;
 
 	latency = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
-	if (latency) {
-		/*
-		 * For platforms that can change the frequency very fast (< 10
-		 * us), the above formula gives a decent transition delay. But
-		 * for platforms where transition_latency is in milliseconds, it
-		 * ends up giving unrealistic values.
-		 *
-		 * Cap the default transition delay to 10 ms, which seems to be
-		 * a reasonable amount of time after which we should reevaluate
-		 * the frequency.
-		 */
-		return min(latency * LATENCY_MULTIPLIER, (unsigned int)10000);
-	}
+	if (latency)
+		/* Give a 50% breathing room between updates */
+		return latency + (latency >> 1);
 
-	return LATENCY_MULTIPLIER;
+	return USEC_PER_MSEC;
 }
 EXPORT_SYMBOL_GPL(cpufreq_policy_transition_delay_us);
 
@@ -779,6 +769,13 @@ static ssize_t store_scaling_governor(struct cpufreq_policy *policy,
 	int ret;
 	char	str_governor[16];
 	struct cpufreq_policy new_policy;
+
+	/*
+	 * Force the LITTLE CPU cluster to use the default govenor (performance)
+	 * because keeping it at its maximum frequency is best.
+	 */
+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
+		return count;
 
 	memcpy(&new_policy, policy, sizeof(*policy));
 

@@ -968,6 +968,7 @@ config CFS_BANDWIDTH
 config RT_GROUP_SCHED
 	bool "Group scheduling for SCHED_RR/FIFO"
 	depends on CGROUP_SCHED
+	depends on !PREEMPT_RT_FULL
 	default n
 	help
 	  This feature lets you explicitly allocate real CPU bandwidth
@@ -1203,6 +1204,31 @@ config CHECKPOINT_RESTORE
 
 	  If unsure, say N here.
 
+config SCHED_CASS
+	bool "Capacity Aware Superset Scheduler"
+	depends on SMP
+	help
+	  This enables the Capacity Aware Superset Scheduler (CASS), which
+	  optimizes runqueue selection of CFS tasks. By using CPU capacity as a
+	  basis for comparing the relative utilization between different CPUs,
+	  CASS fairly balances load across CPUs of varying capacities. This
+	  results in improved multi-core performance, especially when CPUs are
+	  overutilized because CASS doesn't clip a CPU's utilization when it
+	  eclipses the CPU's capacity.
+
+	  As a superset of capacity aware scheduling, CASS implements a
+	  hierarchy of criteria to determine the better CPU to wake a task upon
+	  between CPUs that have the same relative utilization. This way,
+	  single-core performance, latency, and cache affinity are all optimized
+	  where possible.
+
+	  CASS doesn't feature explicit energy awareness but its basic load
+	  balancing principle results in decreased overall energy, often better
+	  than what is possible with explicit energy awareness. By fairly
+	  balancing load based on relative utilization, all CPUs are kept at
+	  their lowest P-state necessary to satisfy the overall load at any
+	  given moment.
+
 config SCHED_AUTOGROUP
 	bool "Automatic process group scheduling"
 	select CGROUPS
@@ -1238,6 +1264,73 @@ config SCHED_TUNE
 	  utilization-driven frequency selection is in use).
 
 	  If unsure, say N.
+
+config UCLAMP_ASSIST
+	bool "UClamp configuration helper"
+	depends on ANDROID && UCLAMP_TASK && UCLAMP_TASK_GROUP
+	help
+	  This option enabled in-kernel uclamp setting overrides
+
+config CPUSET_ASSIST
+	bool "Cpuset configuration helper"
+	depends on CPUSETS
+	depends on ANDROID
+	help
+	  This option enables in-kernel overrides for cpuset values.
+
+	  If unsure, say N.
+
+if CPUSET_ASSIST
+
+config CPUSET_AUDIO_APP
+	string "Value for 'audio-app' cpuset"
+	default "1-2"
+	help
+	  The CPU mask to use for the audio-app cpuset.
+
+config CPUSET_BG
+	string "Value for 'background' cpuset"
+	default "0-3"
+	help
+	  The CPU mask to use for the background cpuset.
+
+config CPUSET_CAMERA
+	string "Value for 'camera-daemon' cpuset"
+	default "0-7"
+	help
+	  The CPU mask to use for the camera-daemon cpuset.
+
+config CPUSET_DISPLAY
+	string "Value for 'display' cpuset"
+	default "4-7"
+	help
+	  The CPU mask to use for the display cpuset.
+
+config CPUSET_FG
+	string "Value for 'foreground' cpuset"
+	default "0-6"
+	help
+	  The CPU mask to use for the foreground cpuset.
+
+config CPUSET_RESTRICTED
+	string "Value for 'restricted' cpuset"
+	default "0-7"
+	help
+	  The CPU mask to use for the restricted cpuset.
+
+config CPUSET_SYSTEM_BG
+	string "Value for 'system-background' cpuset"
+	default "0-3"
+	help
+	  The CPU mask to use for the system-background cpuset.
+
+config CPUSET_TOP_APP
+	string "Value for 'top-app' cpuset"
+	default "0-7"
+	help
+	  The CPU mask to use for the top-app cpuset.
+
+endif
 
 config SYSFS_DEPRECATED
 	bool "Enable deprecated sysfs features to support old userspace tools"
@@ -1395,8 +1488,6 @@ config BPF
 
 menuconfig EXPERT
 	bool "Configure standard kernel features (expert users)"
-	# Unhide debug options, to make the on-by-default options visible
-	select DEBUG_KERNEL
 	help
 	  This option allows certain base kernel options and settings
           to be disabled or tweaked. This is for specialized
@@ -1915,6 +2006,7 @@ choice
 
 config SLAB
 	bool "SLAB"
+	depends on !PREEMPT_RT_FULL
 	select HAVE_HARDENED_USERCOPY_ALLOCATOR
 	help
 	  The regular slab allocator that is established and known to work
@@ -1935,6 +2027,7 @@ config SLUB
 config SLOB
 	depends on EXPERT
 	bool "SLOB (Simple Allocator)"
+	depends on !PREEMPT_RT_FULL
 	help
 	   SLOB replaces the stock allocator with a drastically simpler
 	   allocator. SLOB is generally more space efficient but
@@ -1976,7 +2069,7 @@ config SLAB_FREELIST_HARDENED
 
 config SLUB_CPU_PARTIAL
 	default y
-	depends on SLUB && SMP
+	depends on SLUB && SMP && !PREEMPT_RT_FULL
 	bool "SLUB per cpu partial cache"
 	help
 	  Per cpu partial caches accellerate objects allocation and freeing

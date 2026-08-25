@@ -26,7 +26,8 @@
 /*
  * Timeout for stopping processes
  */
-unsigned int __read_mostly freeze_timeout_msecs = 20 * MSEC_PER_SEC;
+unsigned int __read_mostly freeze_timeout_msecs =
+	IS_ENABLED(CONFIG_ANDROID) ? MSEC_PER_SEC : 20 * MSEC_PER_SEC;
 
 static int try_to_freeze_tasks(bool user_only)
 {
@@ -63,13 +64,13 @@ static int try_to_freeze_tasks(bool user_only)
 			todo += wq_busy;
 		}
 
-		if (!todo || time_after(jiffies, end_time))
-			break;
-
 		if (pm_wakeup_pending()) {
 			wakeup = true;
 			break;
 		}
+
+		if (!todo || time_after(jiffies, end_time))
+			break;
 
 		/*
 		 * We need to retry, but first give the freezing tasks some
@@ -111,7 +112,7 @@ static int try_to_freeze_tasks(bool user_only)
 			elapsed_msecs % 1000);
 	}
 
-	return todo ? -EBUSY : 0;
+	return todo || wakeup ? -EBUSY : 0;
 }
 
 /**
@@ -135,7 +136,6 @@ int freeze_processes(void)
 	if (!pm_freezing)
 		atomic_inc(&system_freezing_cnt);
 
-	pm_wakeup_clear(true);
 	pr_info("Freezing user space processes ... ");
 	pm_freezing = true;
 	error = try_to_freeze_tasks(true);
@@ -146,6 +146,7 @@ int freeze_processes(void)
 	pr_cont("\n");
 	BUG_ON(in_atomic());
 
+#ifndef CONFIG_ANDROID
 	/*
 	 * Now that the whole userspace is frozen we need to disbale
 	 * the OOM killer to disallow any further interference with
@@ -154,6 +155,7 @@ int freeze_processes(void)
 	 */
 	if (!error && !oom_killer_disable(msecs_to_jiffies(freeze_timeout_msecs)))
 		error = -EBUSY;
+#endif
 
 	if (error)
 		thaw_processes();
@@ -198,7 +200,9 @@ void thaw_processes(void)
 	pm_freezing = false;
 	pm_nosig_freezing = false;
 
+#ifndef CONFIG_ANDROID
 	oom_killer_enable();
+#endif
 
 	pr_info("Restarting tasks ... ");
 

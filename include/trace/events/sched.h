@@ -1001,7 +1001,6 @@ TRACE_EVENT(sched_load_cfs_rq,
 		__trace_sched_path(cfs_rq, __get_dynamic_array(path),
 				   __get_dynamic_array_len(path));
 		__entry->load		= cfs_rq->avg.load_avg;
-		__entry->rbl_load 	= cfs_rq->avg.runnable_load_avg;
 		__entry->util		= cfs_rq->avg.util_avg;
 	),
 
@@ -1107,7 +1106,6 @@ TRACE_EVENT(sched_load_se,
 				      p ? TASK_COMM_LEN : sizeof("(null)"));
 		__entry->pid = p ? p->pid : -1;
 		__entry->load = se->avg.load_avg;
-		__entry->rbl_load = se->avg.runnable_load_avg;
 		__entry->util = se->avg.util_avg;
 	),
 
@@ -1356,7 +1354,7 @@ TRACE_EVENT(sched_task_util,
 		__entry->unfilter		= 0;
 		__entry->low_latency		= 0;
 #endif
-		__entry->cpus_allowed           = cpumask_bits(&p->cpus_allowed)[0];
+		__entry->cpus_allowed           = cpumask_bits(p->cpus_ptr)[0];
 	),
 
 	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affine=%#lx low_latency=%d",
@@ -1680,6 +1678,28 @@ TRACE_EVENT_CONDITION(sched_overutilized,
 
 	TP_printk("overutilized=%d sd_span=%s",
 		__entry->overutilized ? 1 : 0, __entry->cpulist)
+);
+
+TRACE_EVENT(sched_capacity_update,
+
+	TP_PROTO(int cpu),
+
+	TP_ARGS(cpu),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu)
+		__field(unsigned int, capacity)
+		__field(unsigned int, capacity_orig)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->capacity		= capacity_of(cpu);
+		__entry->capacity_orig		= capacity_orig_of(cpu);
+	),
+
+	TP_printk("cpu=%d capacity=%u capacity_orig=%u",
+		__entry->cpu, __entry->capacity, __entry->capacity_orig)
 );
 
 /*

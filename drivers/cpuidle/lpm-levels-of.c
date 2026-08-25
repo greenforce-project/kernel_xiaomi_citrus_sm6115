@@ -361,19 +361,6 @@ static int parse_cluster_params(struct device_node *dn, struct lpm_cluster *c)
 	if (ret)
 		return ret;
 
-	c->lpm_prediction = !(of_property_read_bool(dn,
-						    "qcom,disable-prediction"));
-
-	if (c->lpm_prediction) {
-		ret = lpm_of_read_u32(dn, "qcom,clstr-tmr-add", &c->tmr_add,
-				      false);
-		if (ret || c->tmr_add < TIMER_ADD_LOW ||
-					c->tmr_add > TIMER_ADD_HIGH) {
-			c->tmr_add = DEFAULT_TIMER_ADD;
-			ret = 0;
-		}
-	}
-
 	/* Set default_level to 0 as default */
 	c->default_level = 0;
 
@@ -396,6 +383,8 @@ static int parse_power_params(struct device_node *dn, struct power_params *pwr)
 
 	ret = lpm_of_read_u32(dn, "qcom,min-residency-us",
 			      &pwr->min_residency, true);
+
+	pwr->local_timer_stop = of_property_read_bool(dn, "local-timer-stop");
 
 	return ret;
 }
@@ -565,32 +554,6 @@ static int parse_cpu_levels(struct device_node *dn, struct lpm_cluster *c)
 	if (ret)
 		return ret;
 
-	cpu->ipi_prediction = !(of_property_read_bool(dn,
-					"qcom,disable-ipi-prediction"));
-
-	cpu->lpm_prediction = !(of_property_read_bool(dn,
-					"qcom,disable-prediction"));
-
-	if (cpu->lpm_prediction) {
-		ret = lpm_of_read_u32(dn, "qcom,ref-stddev",
-				      &cpu->ref_stddev, false);
-		if (ret || cpu->ref_stddev < STDDEV_LOW ||
-					cpu->ref_stddev > STDDEV_HIGH)
-			cpu->ref_stddev = DEFAULT_STDDEV;
-
-		ret = lpm_of_read_u32(dn, "qcom,tmr-add",
-				      &cpu->tmr_add, false);
-		if (ret || cpu->tmr_add < TIMER_ADD_LOW ||
-					cpu->tmr_add > TIMER_ADD_HIGH)
-			cpu->tmr_add = DEFAULT_TIMER_ADD;
-
-		ret = lpm_of_read_u32(dn, "qcom,ref-premature-cnt",
-				      &cpu->ref_premature_cnt, false);
-		if (ret || cpu->ref_premature_cnt < PREMATURE_CNT_LOW ||
-				cpu->ref_premature_cnt > PREMATURE_CNT_HIGH)
-			cpu->ref_premature_cnt = DEFAULT_PREMATURE_CNT;
-	}
-
 	ret = parse_cpu(dn, cpu);
 	if (ret) {
 		pr_err("Failed to parse cpu %s\n", dn->name);
@@ -642,7 +605,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 	INIT_LIST_HEAD(&c->child);
 	INIT_LIST_HEAD(&c->cpu);
 	c->parent = parent;
-	spin_lock_init(&c->sync_lock);
+	raw_spin_lock_init(&c->sync_lock);
 	c->min_child_level = NR_LPM_LEVELS;
 
 	for_each_child_of_node(node, n) {

@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 #include <linux/bpf-cgroup.h>
 #include <linux/psi_types.h>
+#include <linux/swork.h>
 
 #ifdef CONFIG_CGROUPS
 
@@ -176,6 +177,7 @@ struct cgroup_subsys_state {
 
 	/* percpu_ref killing and RCU release */
 	struct work_struct destroy_work;
+	struct swork_event destroy_swork;
 	struct rcu_work destroy_rwork;
 
 	/*
@@ -260,8 +262,7 @@ struct css_set {
 	 * List of csets participating in the on-going migration either as
 	 * source or destination.  Protected by cgroup_mutex.
 	 */
-	struct list_head mg_src_preload_node;
-	struct list_head mg_dst_preload_node;
+	struct list_head mg_preload_node;
 	struct list_head mg_node;
 
 	/*

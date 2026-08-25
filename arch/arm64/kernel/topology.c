@@ -77,6 +77,7 @@ static int __init parse_core(struct device_node *core, int package_id,
 			cpu = get_cpu_for_node(t);
 			if (cpu >= 0) {
 				cpu_topology[cpu].package_id = package_id;
+				cpu_topology[cpu].cluster_id = package_id;
 				cpu_topology[cpu].core_id = core_id;
 				cpu_topology[cpu].thread_id = i;
 			} else if (cpu != -ENODEV) {
@@ -99,6 +100,7 @@ static int __init parse_core(struct device_node *core, int package_id,
 		}
 
 		cpu_topology[cpu].package_id = package_id;
+		cpu_topology[cpu].cluster_id = package_id;
 		cpu_topology[cpu].core_id = core_id;
 	} else if (leaf && cpu != -ENODEV) {
 		pr_err("%pOF: Can't get CPU for leaf core\n", core);
@@ -240,6 +242,7 @@ const struct cpumask *cpu_coregroup_mask(int cpu)
 	return core_mask;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static void update_possible_siblings_masks(unsigned int cpuid)
 {
 	struct cpu_topology *cpu_topo, *cpuid_topo = &cpu_topology[cpuid];
@@ -257,6 +260,7 @@ static void update_possible_siblings_masks(unsigned int cpuid)
 		cpumask_set_cpu(cpu, &cpuid_topo->core_possible_sibling);
 	}
 }
+#endif
 
 static void update_siblings_masks(unsigned int cpuid)
 {
@@ -317,6 +321,7 @@ void store_cpu_topology(unsigned int cpuid)
 	cpuid_topo->thread_id  = -1;
 	cpuid_topo->core_id    = cpuid;
 	cpuid_topo->package_id = cpu_to_node(cpuid);
+	cpuid_topo->cluster_id = cpuid_topo->package_id;
 
 	pr_debug("CPU%u: cluster %d core %d thread %d mpidr %#016llx\n",
 		 cpuid, cpuid_topo->package_id, cpuid_topo->core_id,
@@ -348,6 +353,7 @@ static void __init reset_cpu_topology(void)
 
 		cpu_topo->thread_id = -1;
 		cpu_topo->core_id = 0;
+		cpu_topo->cluster_id = -1;
 		cpu_topo->package_id = -1;
 		cpu_topo->llc_id = -1;
 
@@ -409,6 +415,7 @@ static int __init parse_acpi_topology(void)
 		}
 		topology_id = find_acpi_cpu_topology_package(cpu);
 		cpu_topology[cpu].package_id = topology_id;
+		cpu_topology[cpu].cluster_id = topology_id;
 
 		i = acpi_find_last_cache_level(cpu);
 
@@ -435,8 +442,6 @@ static inline int __init parse_acpi_topology(void)
 
 void __init init_cpu_topology(void)
 {
-	int cpu;
-
 	reset_cpu_topology();
 
 	/*
@@ -447,8 +452,12 @@ void __init init_cpu_topology(void)
 		reset_cpu_topology();
 	else if (of_have_populated_dt() && parse_dt_topology())
 		reset_cpu_topology();
+#ifdef CONFIG_SCHED_WALT
 	else {
+		int cpu;
+
 		for_each_possible_cpu(cpu)
 			update_possible_siblings_masks(cpu);
 	}
+#endif
 }

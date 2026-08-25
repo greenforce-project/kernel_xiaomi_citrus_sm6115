@@ -108,7 +108,7 @@ static int call_cpuidle(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	 * update no idle residency and return.
 	 */
 	if (current_clr_polling_and_test()) {
-		dev->last_residency = 0;
+		dev->last_residency_ns = 0;
 		local_irq_enable();
 		return -EBUSY;
 	}
@@ -229,6 +229,12 @@ exit_idle:
 static void do_idle(void)
 {
 	int cpu = smp_processor_id();
+
+	/*
+	 * Check if we need to update blocked load
+	 */
+	nohz_run_idle_balance(cpu);
+
 	/*
 	 * If the arch has a polling bit, we maintain an invariant:
 	 *
@@ -243,7 +249,6 @@ static void do_idle(void)
 
 	while (!need_resched()) {
 		check_pgt_cache();
-		rmb();
 
 		local_irq_disable();
 
@@ -289,6 +294,11 @@ static void do_idle(void)
 	 */
 	smp_mb__after_atomic();
 
+	/*
+	 * RCU relies on this call to be done outside of an RCU read-side
+	 * critical section.
+	 */
+	flush_smp_call_function_from_idle();
 	sched_ttwu_pending();
 	schedule_idle();
 
@@ -337,9 +347,10 @@ void play_idle(unsigned long duration_ms)
 	cpuidle_use_deepest_state(true);
 
 	it.done = 0;
-	hrtimer_init_on_stack(&it.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrtimer_init_on_stack(&it.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 	it.timer.function = idle_inject_timer_fn;
-	hrtimer_start(&it.timer, ms_to_ktime(duration_ms), HRTIMER_MODE_REL_PINNED);
+	hrtimer_start(&it.timer, ms_to_ktime(duration_ms),
+		      HRTIMER_MODE_REL_PINNED_HARD);
 
 	while (!READ_ONCE(it.done))
 		do_idle();

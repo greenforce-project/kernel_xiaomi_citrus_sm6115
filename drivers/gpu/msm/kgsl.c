@@ -1126,8 +1126,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 	int result = 0;
 
 	mutex_lock(&device->mutex);
-	device->open_count--;
-	if (device->open_count == 0) {
+	if (device->open_count == 1) {
 
 		/*
 		 * Wait up to 1 second for the active count to go low
@@ -1144,6 +1143,18 @@ static int kgsl_close_device(struct kgsl_device *device)
 
 		result = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
+
+	/*
+	 * We must decrement the open_count after last_close() has finished.
+	 * This is because last_close() relinquishes device mutex while
+	 * waiting for active count to become 0. This opens up a window
+	 * where a new process can come in, see that open_count is 0, and
+	 * initiate a first_open(). This can potentially mess up the power
+	 * state machine. To avoid a first_open() from happening before
+	 * last_close() has finished, decrement the open_count after
+	 * last_close().
+	 */
+	device->open_count--;
 	mutex_unlock(&device->mutex);
 	return result;
 
@@ -2473,7 +2484,7 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 	}
 
 	handle = kgsl_sync_fence_async_wait(event.fd,
-		gpuobj_free_fence_func, entry, NULL);
+		gpuobj_free_fence_func, entry);
 
 	if (IS_ERR(handle)) {
 		kgsl_mem_entry_unset_pend(entry);
@@ -5277,12 +5288,15 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 		irq_handler_t handler, void *data)
 {
 	int ret, num = platform_get_irq_byname(pdev, name);
+	unsigned long irqflags = IRQF_TRIGGER_HIGH;
 
 	if (num < 0)
 		return num;
 
-	ret = devm_request_irq(&pdev->dev, num, handler, IRQF_TRIGGER_HIGH,
-		name, data);
+	if (!strcmp(name, "kgsl_3d0_irq"))
+		irqflags |= IRQF_PERF_AFFINE;
+
+	ret = devm_request_irq(&pdev->dev, num, handler, irqflags, name, data);
 
 	if (ret)
 		dev_err(&pdev->dev, "Unable to get interrupt %s: %d\n",
@@ -5320,7 +5334,6 @@ int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int status = -EINVAL;
-	int cpu;
 
 	status = _register_device(device);
 	if (status)
@@ -5387,7 +5400,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	device->dev->dma_parms =
 		kzalloc(sizeof(*device->dev->dma_parms), GFP_KERNEL);
 
-	dma_set_max_seg_size(device->dev, KGSL_DMA_BIT_MASK);
+	dma_set_max_seg_size(device->dev, (unsigned int)KGSL_DMA_BIT_MASK);
 
 	/* Initialize the memory pools */
 	kgsl_init_page_pools(device);
@@ -5416,22 +5429,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	pm_qos_add_request(&device->pwrctrl.pm_qos_req_dma,
 				PM_QOS_CPU_DMA_LATENCY,
 				PM_QOS_DEFAULT_VALUE);
-
-	if (device->pwrctrl.l2pc_cpus_mask) {
-		struct pm_qos_request *qos = &device->pwrctrl.l2pc_cpus_qos;
-
-		qos->type = PM_QOS_REQ_AFFINE_CORES;
-
-		cpumask_empty(&qos->cpus_affine);
-		for_each_possible_cpu(cpu) {
-			if ((1 << cpu) & device->pwrctrl.l2pc_cpus_mask)
-				cpumask_set_cpu(cpu, &qos->cpus_affine);
-		}
-
-		pm_qos_add_request(&device->pwrctrl.l2pc_cpus_qos,
-				PM_QOS_CPU_DMA_LATENCY,
-				PM_QOS_DEFAULT_VALUE);
-	}
 
 	/* Initialize the snapshot engine */
 	kgsl_device_snapshot_init(device);
@@ -5469,8 +5466,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	kgsl_pwrctrl_uninit_sysfs(device);
 
 	pm_qos_remove_request(&device->pwrctrl.pm_qos_req_dma);
-	if (device->pwrctrl.l2pc_cpus_mask)
-		pm_qos_remove_request(&device->pwrctrl.l2pc_cpus_qos);
 
 	idr_destroy(&device->context_idr);
 	idr_destroy(&device->timelines);
@@ -5535,7 +5530,7 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
-	struct sched_param param = { .sched_priority = 2 };
+	struct sched_param param = { .sched_priority = 6 };
 
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0,
@@ -5619,15 +5614,15 @@ static int __init kgsl_core_init(void)
 
 	kthread_init_worker(&kgsl_driver.worker);
 
-	kgsl_driver.worker_thread = kthread_run(kthread_worker_fn,
-		&kgsl_driver.worker, "kgsl_worker_thread");
+	kgsl_driver.worker_thread = kthread_run_perf_critical(cpu_perf_mask,
+		kthread_worker_fn, &kgsl_driver.worker, "kgsl_worker_thread");
 
 	if (IS_ERR(kgsl_driver.worker_thread)) {
 		pr_err("kgsl: unable to start kgsl thread\n");
 		goto err;
 	}
 
-	sched_setscheduler(kgsl_driver.worker_thread, SCHED_FIFO, &param);
+	sched_setscheduler(kgsl_driver.worker_thread, SCHED_RR, &param);
 
 	kgsl_events_init();
 

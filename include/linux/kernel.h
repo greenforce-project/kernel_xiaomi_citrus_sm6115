@@ -234,6 +234,10 @@ extern void __cant_sleep(const char *file, int line, int preempt_offset);
  */
 # define might_sleep() \
 	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
+
+# define might_sleep_no_state_check() \
+	do { ___might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
+
 /**
  * cant_sleep - annotation for functions that cannot sleep
  *
@@ -248,6 +252,7 @@ extern void __cant_sleep(const char *file, int line, int preempt_offset);
   static inline void __might_sleep(const char *file, int line,
 				   int preempt_offset) { }
 # define might_sleep() do { might_resched(); } while (0)
+# define might_sleep_no_state_check() do { might_resched(); } while (0)
 # define cant_sleep() do { } while (0)
 # define sched_annotate_sleep() do { } while (0)
 #endif
@@ -708,6 +713,9 @@ do {									\
  * let gcc optimize the rest.
  */
 
+#ifdef CONFIG_DISABLE_TRACE_PRINTK
+#define trace_printk pr_debug
+#else
 #define trace_printk(fmt, ...)				\
 do {							\
 	char _______STR[] = __stringify((__VA_ARGS__));	\
@@ -730,6 +738,7 @@ do {									\
 	else								\
 		__trace_printk(_THIS_IP_, fmt, ##args);			\
 } while (0)
+#endif
 
 extern __printf(2, 3)
 int __trace_bprintk(unsigned long ip, const char *fmt, ...);
