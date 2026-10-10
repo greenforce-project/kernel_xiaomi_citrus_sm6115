@@ -255,9 +255,9 @@
 	rpm-regulator-ldoa11 {
 		status = "okay";
 		L11A: pm6125_l11: regulator-l11 {
-			regulator-min-microvolt = <1704000>;
+			regulator-min-microvolt = <1768000>;
 			regulator-max-microvolt = <1952000>;
-			qcom,init-voltage = <1704000>;
+			qcom,init-voltage = <1768000>;
 			status = "okay";
 		};
 	};

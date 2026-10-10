@@ -151,7 +151,6 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
                 bengal-rumi-overlay.dtbo \
                 bengal-qrd-overlay.dtbo \
                 bengal-idp-overlay.dtbo \
-                bengal-idp-nopmi-overlay.dtbo \
                 bengal-idp-usbc-overlay.dtbo \
                 bengalp-idp-overlay.dtbo \
                 bengal-idp-1gb-overlay.dtbo \
@@ -170,7 +169,6 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 bengal-rumi-overlay.dtbo-base := bengal.dtb
 bengal-qrd-overlay.dtbo-base := bengal.dtb
 bengal-idp-overlay.dtbo-base := bengal.dtb
-bengal-idp-nopmi-overlay.dtbo-base := bengal.dtb
 bengal-idp-usbc-overlay.dtbo-base := bengal.dtb
 bengalp-idp-overlay.dtbo-base := bengalp.dtb
 bengal-idp-1gb-overlay.dtbo-base := bengal-1gb.dtb

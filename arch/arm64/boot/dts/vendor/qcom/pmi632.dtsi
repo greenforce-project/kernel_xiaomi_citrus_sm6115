@@ -175,6 +175,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#cooling-cells = <2>;
+			qcom,chg-term-src = <1>;
+			qcom,chg-term-current-ma = <(-200)>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
 			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
@@ -331,9 +333,6 @@
 						"ilim2-s2",
 						"vreg-ok";
 			};
-			smb5_vbus: qcom,smb5-vbus {
-				regulator-name = "smb5-vbus";
-			};
 		};
 
 		pmi632_qg: qpnp,qg {
@@ -341,7 +340,13 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			qcom,vbatt-cutoff-mv = <3400>;
+			qcom,fvss-enable;
+			qcom,fvss-vbatt-mv =  <3500>;			
+
 			qcom,pmic-revid = <&pmi632_revid>;
+			qcom,s3-entry-ibat-ua = <30000>;
+			qcom,s3-exit-ibat-ua = <50000>;
 			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
 				      <&pmi632_vadc ADC_BAT_ID_PU2>;
 			io-channel-names = "batt-therm",
@@ -534,7 +539,7 @@
 				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <1200>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
@@ -547,7 +552,7 @@
 				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <1200>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
@@ -560,7 +565,7 @@
 				qcom,max-current = <500>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -572,7 +577,7 @@
 				qcom,max-current = <500>;
 				qcom,default-led-trigger = "torch1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -757,17 +762,18 @@
 		};
 	};
 
-	soc {
+	socd {
 		polling-delay-passive = <100>;
 		polling-delay = <0>;
-		thermal-governor = "low_limits_cap";
+		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
-		tracks-low;
+
+		disable-thermal-zone;
 
 		trips {
-			pmi632_low_soc: low-soc {
-				temperature = <10>;
+			pmi632_socd_trip: socd-trip {
+				temperature = <90>;
 				hysteresis = <0>;
 				type = "passive";
 			};
