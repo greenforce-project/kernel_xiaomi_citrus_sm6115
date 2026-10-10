@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 # auto-detect subdirs
-ifeq ($(CONFIG_ARCH_BENGAL), y)
+ifeq ($(CONFIG_ARCH_KHAJE), y)
 include $(srctree)/techpack/camera-bengal/config/bengalcamera.conf
 endif
 
@@ -9,7 +9,7 @@ ifeq ($(CONFIG_ARCH_KHAJE), y)
 include $(srctree)/techpack/camera-bengal/config/khajecamera.conf
 endif
 
-ifeq ($(CONFIG_ARCH_BENGAL), y)
+ifeq ($(CONFIG_ARCH_KHAJE), y)
 LINUXINCLUDE    += \
 		-include $(srctree)/techpack/camera-bengal/config/bengalcameraconf.h
 endif
