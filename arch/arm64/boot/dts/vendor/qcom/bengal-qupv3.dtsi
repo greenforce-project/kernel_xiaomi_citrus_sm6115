@@ -163,7 +163,7 @@
 		dmas = <&gpi_dma0 0 0 1 64 0>,
 			<&gpi_dma0 1 0 1 64 0>;
 		dma-names = "tx", "rx";
-		status = "enable";
+		status = "ok";
 	};
 
 	/* SPI Instance */
@@ -233,6 +233,6 @@
 		dmas = <&gpi_dma0 0 5 1 64 0>,
 			<&gpi_dma0 1 5 1 64 0>;
 		dma-names = "tx", "rx";
-		status = "enable";
+		status = "ok";
 	};
 };
