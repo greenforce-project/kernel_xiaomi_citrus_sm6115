@@ -15,7 +15,6 @@
 /delete-node/ &pil_ipa_fw_mem;
 /delete-node/ &pil_ipa_gsi_mem;
 /delete-node/ &pil_gpu_mem;
-/delete-node/ &cdsp_sec_mem;
 
 /delete-node/ &user_contig_mem;
 /delete-node/ &qseecom_mem;
