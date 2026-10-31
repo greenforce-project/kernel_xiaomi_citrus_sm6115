@@ -1,3 +1,13 @@
+ifeq ($(CONFIG_ARCH_BENGAL),y)
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+        dtbo-$(CONFIG_ARCH_BENGAL) += \
+                bengal-idp-overlay.dtbo
+
+bengal-idp-overlay.dtbo-base := bengal.dtb
+else
+dtb-$(CONFIG_ARCH_BENGAL) += bengal-idp.dtb
+endif
+else # CONFIG_ARCH_BENGAL
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
         dtbo-$(CONFIG_ARCH_KONA) += \
                 kona-cdp-overlay.dtbo \
@@ -507,6 +517,7 @@ dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
 	sda429-mtp.dtb \
 	sda429-cdp.dtb
 endif
+endif # CONFIG_ARCH_BENGAL
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
