@@ -11,16 +11,26 @@
 #define FDT_TAGALIGN(x)		(FDT_ALIGN((x), FDT_TAGSIZE))
 
 int32_t fdt_ro_probe_(const void *fdt);
-#define FDT_RO_PROBE(fdt)					\
-	{							\
-		int32_t totalsize_;				\
-		if ((totalsize_ = fdt_ro_probe_(fdt)) < 0)	\
-			return totalsize_;			\
+#define FDT_RO_PROBE(fdt)						\
+	{								\
+		if (!can_assume(VALID_DTB)) {				\
+			int32_t totalsize_;				\
+			if ((totalsize_ = fdt_ro_probe_(fdt)) < 0)	\
+				return totalsize_;			\
+		}							\
 	}
 
 int fdt_check_node_offset_(const void *fdt, int offset);
 int fdt_check_prop_offset_(const void *fdt, int offset);
-const char *fdt_find_string_(const char *strtab, int tabsize, const char *s);
+
+const char *fdt_find_string_len_(const char *strtab, int tabsize, const char *s,
+				 int s_len);
+static inline const char *fdt_find_string_(const char *strtab, int tabsize,
+					   const char *s)
+{
+	return fdt_find_string_len_(strtab, tabsize, s, strlen(s));
+}
+
 int fdt_node_end_offset_(void *fdt, int nodeoffset);
 
 static inline const void *fdt_offset_ptr_(const void *fdt, int offset)
@@ -46,6 +56,25 @@ static inline struct fdt_reserve_entry *fdt_mem_rsv_w_(void *fdt, int n)
 	return (void *)(uintptr_t)fdt_mem_rsv_(fdt, n);
 }
 
+/*
+ * Internal helpers to access structural elements of the device tree
+ * blob (rather than for example reading integers from within property
+ * values).  We assume that we are either given a naturally aligned
+ * address for the platform or if we are not, we are on a platform
+ * where unaligned memory reads will be handled in a graceful manner.
+ * If not the external helpers fdtXX_ld() from libfdt.h can be used
+ * instead.
+ */
+static inline uint32_t fdt32_ld_(const fdt32_t *p)
+{
+	return fdt32_to_cpu(*p);
+}
+
+static inline uint64_t fdt64_ld_(const fdt64_t *p)
+{
+	return fdt64_to_cpu(*p);
+}
+
 #define FDT_SW_MAGIC		(~FDT_MAGIC)
 
 /**********************************************************************/
@@ -57,6 +86,20 @@ static inline struct fdt_reserve_entry *fdt_mem_rsv_w_(void *fdt, int n)
 #endif
 
 /*
+ * Maximum node depth for which fdt_parent_offset() finds a node's parent in
+ * a single pass over the tree. Deeper nodes fall back to walking the tree
+ * twice, which is correct but slower.
+ *
+ * The single pass needs an int for each level, so this costs that much
+ * stack. Reduce it if that matters more than the speed; no real device tree
+ * comes close to the default. Set it to 0 to leave out the single-pass code
+ * altogether, for the smallest build.
+ */
+#ifndef FDT_PARENT_MAX_DEPTH
+#define FDT_PARENT_MAX_DEPTH 32
+#endif
+
+/*
  * Defines assumptions which can be enabled. Each of these can be enabled
  * individually. For maximum safety, don't enable any assumptions!
  *
@@ -65,7 +108,7 @@ static inline struct fdt_reserve_entry *fdt_mem_rsv_w_(void *fdt, int n)
  * signature or hash check before using libfdt.
  *
  * For situations where security is not a concern it may be safe to enable
- * ASSUME_SANE.
+ * ASSUME_PERFECT.
  */
 enum {
 	/*

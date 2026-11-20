@@ -3,10 +3,12 @@
  * (C) Copyright David Gibson <dwg@au1.ibm.com>, IBM Corporation.  2005.
  */
 
-#include "dtc.h"
-
 #include <dirent.h>
+#include <errno.h>
 #include <sys/stat.h>
+
+#include "dtc.h"
+#include "util.h"
 
 static struct node *read_fstree(const char *dirname)
 {
@@ -43,7 +45,7 @@ static struct node *read_fstree(const char *dirname)
 					"WARNING: Cannot open %s: %s\n",
 					tmpname, strerror(errno));
 			} else {
-				prop = build_property(xstrdup(de->d_name),
+				prop = build_property(de->d_name,
 						      data_copy_file(pfile,
 								     st.st_size),
 						      NULL);

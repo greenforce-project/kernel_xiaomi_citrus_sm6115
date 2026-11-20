@@ -245,7 +245,6 @@ quiet_cmd_gzip = GZIP    $@
 # DTC
 # ---------------------------------------------------------------------------
 DTC ?= $(objtree)/scripts/dtc/dtc
-DTC_FLAGS += -Wno-interrupt_provider
 
 # Silence warnings
 DTC_FLAGS += -q
@@ -259,7 +258,6 @@ DTC_FLAGS += -Wno-simple_bus_reg \
 	-Wno-unit_address_format \
 	-Wno-avoid_unnecessary_addr_size \
 	-Wno-alias_paths \
-	-Wno-graph_child_address \
 	-Wno-simple_bus_reg \
 	-Wno-unique_unit_address \
 	-Wno-pci_device_reg
@@ -267,8 +265,7 @@ endif
 
 ifneq ($(findstring 2,$(KBUILD_ENABLE_EXTRA_GCC_CHECKS)),)
 DTC_FLAGS += -Wnode_name_chars_strict \
-	-Wproperty_name_chars_strict \
-	-Winterrupt_provider
+	-Wproperty_name_chars_strict
 endif
 
 DTC_FLAGS += $(DTC_FLAGS_$(basetarget))
